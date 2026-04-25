@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <script>
+    (function () {
+      try {
+        var saved = localStorage.getItem("toolsTheme") || "system";
+        var systemDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+        var effective = saved === "dark" || (saved === "system" && systemDark) ? "dark" : "light";
+        document.documentElement.setAttribute("data-theme", saved);
+        document.documentElement.setAttribute("data-effective-theme", effective);
+      } catch (error) {
+        document.documentElement.setAttribute("data-theme", "system");
+        document.documentElement.setAttribute("data-effective-theme", "light");
+      }
+    }());
+  </script>
+  <title>Armenian Church Tools</title>
+  <link rel="stylesheet" href="styles-v4.css?v=2026-04-24-directlinks">
+</head>
+<body>
+  <main class="app home-app">
+    <header class="header">
+      <div class="title-block">
+        <h1>Armenian Church Tools</h1>
+        <p id="subtitle">A collection of Armenian liturgical and language tools</p>
+      </div>
+
+      <div class="header-actions">
+        <div class="theme-controls" aria-label="Color theme controls">
+          <label for="themeSelect">Theme</label>
+          <select id="themeSelect" aria-label="Choose color theme">
+            <option value="system">System</option>
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+          </select>
+        </div>
+      </div>
+    </header>
+
+    <section class="card intro-card" aria-labelledby="tools-heading">
+      <h2 id="tools-heading">Available Tools</h2>
+      <div class="tool-grid">
+        <a class="tool-card" href="https://frharoutiun.github.io/Armenian-Church-Calendar/">
+          <span class="tool-title">Armenian Church Calendar Calculator</span>
+          <span class="tool-description">Calculate New/Gregorian Armenian Church calendar values, selected feast dates, and related Tonatsuyts values.</span>
+          <span class="tool-action">Open calculator →</span>
+        </a>
+
+        <a class="tool-card" href="https://frharoutiun.github.io/TR/">
+          <span class="tool-title">TR Armenian Transliterator</span>
+          <span class="tool-description">Convert Armenian encoding and transliteration formats using the web-native version of the original applet.</span>
+          <span class="tool-action">Open transliterator →</span>
+        </a>
+      </div>
+    </section>
+
+    <section class="card notes" aria-labelledby="feedback-heading">
+      <h2 id="feedback-heading">Feedback</h2>
+      <p>Please send any feedback regarding the accuracy or functionality of these applets to Fr. Haroutiun Sabounjian at frharoutiun@gmail.com.</p>
+    </section>
+  </main>
+
+  <script src="app-v4.js?v=2026-04-24-directlinks"></script>
+</body>
+</html>
