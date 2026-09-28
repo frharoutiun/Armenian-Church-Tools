@@ -1,268 +1,608 @@
-/* Krapar Sharagnots Search & Browse - extends the shared tool tokens from
-   ../styles-v4.css (same :root variables, same card/select styling). */
+/* Krapar Sharagnots Search & Browse — a standalone hymnal-book design.
+   Deliberately NOT sharing the plain utility-tool look of the homepage/TR
+   app (../styles-v4.css is not loaded here at all) — this page has its own
+   full design language: parchment, wine, gold-leaf, illuminated capitals. */
+
+@font-face {
+  font-family: "GHEA Avandakan";
+  src: url("fonts/GHEA-Avandakan-BoldItalic.otf") format("opentype");
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "GHEA Mariam";
+  src: url("fonts/GHEA-Mariam-Regular.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "GHEA Mariam";
+  src: url("fonts/GHEA-Mariam-Bold.otf") format("opentype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "GHEA Mariam";
+  src: url("fonts/GHEA-Mariam-Italic.otf") format("opentype");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+:root {
+  --paper: #f4ead2;
+  --paper-deep: #fbf6e8;
+  --paper-line: #d9c69a;
+  --ink: #2a1c12;
+  --muted: #7a6a51;
+  --wine: #742331;
+  --wine-deep: #4f1620;
+  --gold: #a3792f;
+  --gold-bright: #c9971f;
+  --shadow: rgba(42, 28, 18, 0.16);
+  color-scheme: light;
+}
+
+:root[data-effective-theme="dark"] {
+  --paper: #211712;
+  --paper-deep: #180f0b;
+  --paper-line: #4a382a;
+  --ink: #ecdfc4;
+  --muted: #b6a583;
+  --wine: #c96a7a;
+  --wine-deep: #e0899a;
+  --gold: #d9b45a;
+  --gold-bright: #f0cd7a;
+  --shadow: rgba(0, 0, 0, 0.5);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: "GHEA Mariam", "EB Garamond", Georgia, serif;
+  font-size: 17px;
+  line-height: 1.6;
+  transition: background-color 200ms ease, color 200ms ease;
+}
+
+.armenian {
+  font-family: "GHEA Mariam", serif;
+}
+.english {
+  font-family: "EB Garamond", Georgia, serif;
+}
+
+.app {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 28px 20px 60px;
+}
+
+/* --- ornamental divider --- */
+.ornament {
+  text-align: center;
+  color: var(--gold);
+  font-family: "GHEA Avandakan", serif;
+  font-size: 26px;
+  margin: 10px 0 18px;
+  letter-spacing: 0.4em;
+  opacity: 0.9;
+}
+
+/* --- header --- */
+.hymnal-header {
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.hymnal-title {
+  font-family: "GHEA Avandakan", serif;
+  font-size: 44px;
+  color: var(--wine);
+  margin: 0;
+  line-height: 1.15;
+}
 
 .badge-dev {
   display: inline-block;
-  margin-left: 10px;
-  padding: 2px 8px;
-  font-size: 11px;
+  margin-left: 12px;
+  padding: 3px 10px;
+  font-family: "EB Garamond", Georgia, serif;
+  font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: rgb(150, 100, 20);
-  background: rgb(255, 244, 220);
-  border: 1px solid rgb(220, 190, 130);
+  color: var(--gold-bright);
+  background: var(--wine-deep);
+  border: 1px solid var(--gold);
   border-radius: 3px;
   vertical-align: middle;
 }
 
-html[data-effective-theme="dark"] .badge-dev {
-  color: rgb(255, 214, 140);
-  background: rgb(60, 48, 20);
-  border-color: rgb(120, 96, 40);
+.hymnal-subtitle {
+  font-family: "EB Garamond", Georgia, serif;
+  font-style: italic;
+  color: var(--muted);
+  font-size: 16px;
+  margin: 6px 0 0;
+}
+
+.header-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  margin: 16px 0 4px;
+  flex-wrap: wrap;
 }
 
 .translit-toggle {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
+  font-family: "EB Garamond", Georgia, serif;
+  font-size: 14px;
   font-weight: 700;
-  white-space: nowrap;
+  color: var(--wine);
+}
+.translit-toggle input { width: 16px; height: 16px; accent-color: var(--wine); }
+
+.theme-select-wrap select {
+  font-family: "EB Garamond", Georgia, serif;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  background: var(--paper-deep);
+  border: 1px solid var(--paper-line);
+  border-radius: 3px;
+  padding: 4px 8px;
 }
 
-.translit-toggle input {
-  width: 16px;
-  height: 16px;
+.search-reveal[hidden] { display: none; }
+.search-reveal {
+  display: block;
+  margin: 0 auto 18px;
+  padding: 8px 18px;
+  font-family: "EB Garamond", Georgia, serif;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--wine);
+  background: var(--paper-deep);
+  border: 1px solid var(--paper-line);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.search-reveal:hover { border-color: var(--gold); }
+
+/* --- cards / panels --- */
+.panel {
+  background: var(--paper-deep);
+  border: 1px solid var(--paper-line);
+  border-radius: 4px;
+  box-shadow: 0 2px 10px var(--shadow);
+  padding: 18px 20px;
+  margin-bottom: 18px;
+}
+
+.panel h2 {
+  font-family: "EB Garamond", Georgia, serif;
+  font-variant: small-caps;
+  letter-spacing: 0.04em;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--wine);
+  margin: 0 0 10px;
+  border-bottom: 1px solid var(--paper-line);
+  padding-bottom: 6px;
 }
 
 /* --- search --- */
-
-.search-row {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 10px;
-  flex-wrap: wrap;
-}
-
 .search-row input[type="search"] {
-  flex: 1 1 320px;
-  min-width: 0;
-  height: 38px;
-  padding: 0 12px;
-  border: 1px solid rgb(170, 178, 188);
-  background: var(--field-background);
-  color: var(--header-text);
-  font-family: inherit;
-  font-size: 15px;
-  border-radius: 2px;
+  width: 100%;
+  height: 42px;
+  padding: 0 14px;
+  border: 1px solid var(--paper-line);
+  background: var(--paper);
+  color: var(--ink);
+  font-family: "EB Garamond", Georgia, serif;
+  font-size: 17px;
+  border-radius: 3px;
 }
-
 .search-row input[type="search"]:focus {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--gold);
   outline-offset: 1px;
 }
 
 .search-hint {
-  color: var(--muted-text);
-  font-size: 12px;
-  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 13px;
+  font-style: italic;
+  margin: 8px 0 14px;
 }
 
 .facet-row {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .facet-chip {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 5px 10px;
-  font-size: 12px;
+  padding: 5px 11px;
+  font-family: "EB Garamond", Georgia, serif;
+  font-size: 13px;
   font-weight: 700;
-  border: 1px solid var(--grid);
-  background: var(--tile-background);
-  color: var(--header-text);
+  border: 1px solid var(--paper-line);
+  background: var(--paper);
+  color: var(--ink);
   border-radius: 999px;
   cursor: pointer;
   user-select: none;
 }
-
-.facet-chip:hover {
-  border-color: var(--accent);
-}
-
+.facet-chip:hover { border-color: var(--gold); }
 .facet-chip.active {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: white;
+  background: var(--wine);
+  border-color: var(--wine);
+  color: var(--paper-deep);
 }
-
-.facet-chip .count {
-  color: var(--muted-text);
-  font-weight: 400;
-}
-
-.facet-chip.active .count {
-  color: rgba(255, 255, 255, 0.8);
-}
+.facet-chip .count { color: var(--muted); font-weight: 400; }
+.facet-chip.active .count { color: rgba(255, 255, 255, 0.75); }
 
 .facet-group-label {
-  font-size: 11px;
+  font-family: "EB Garamond", Georgia, serif;
+  font-size: 12px;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--muted-text);
+  font-variant: small-caps;
+  letter-spacing: 0.05em;
+  color: var(--muted);
   margin: 10px 0 4px;
 }
 
 .facet-more-toggle {
   background: none;
   border: none;
-  color: var(--accent);
-  font-size: 12px;
+  color: var(--wine);
+  font-family: "EB Garamond", Georgia, serif;
+  font-size: 13px;
   font-weight: 700;
   cursor: pointer;
   padding: 5px 4px;
 }
 
-/* --- results / browse list --- */
-
+/* --- results summary / list --- */
 .results-summary {
-  font-size: 13px;
-  color: var(--muted-text);
-  margin-bottom: 10px;
+  font-family: "EB Garamond", Georgia, serif;
+  font-style: italic;
+  font-size: 14px;
+  color: var(--muted);
+  margin-bottom: 12px;
 }
 
 .result-item, .section-item {
-  border: 1px solid var(--grid);
-  background: var(--tile-background);
-  padding: 12px 14px;
+  border: 1px solid var(--paper-line);
+  background: var(--paper);
+  padding: 14px 16px;
   margin-bottom: 8px;
-  border-radius: 2px;
+  border-radius: 3px;
+  cursor: pointer;
 }
+.result-item:hover, .section-item:hover { border-color: var(--gold); }
 
-.result-item .result-loc, .section-item .section-cat {
-  font-size: 11px;
+.result-loc, .section-cat {
+  font-family: "EB Garamond", Georgia, serif;
+  font-size: 12px;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: var(--accent);
+  font-variant: small-caps;
+  letter-spacing: 0.04em;
+  color: var(--gold-bright);
+  background: var(--wine);
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 2px;
+  margin-bottom: 6px;
 }
 
-.result-item .result-text, .section-item .section-heading {
-  font-size: 16px;
-  line-height: 1.5;
+.result-text, .section-heading {
+  font-family: "GHEA Mariam", serif;
+  font-size: 19px;
+  line-height: 1.55;
   margin: 4px 0;
 }
 
 .translit-line {
-  font-size: 13px;
+  font-family: "EB Garamond", Georgia, serif;
+  font-size: 14px;
   font-style: italic;
-  color: var(--muted-text);
+  color: var(--muted);
   margin: 2px 0 0;
   display: none;
 }
+body.show-translit .translit-line { display: block; }
 
-body.show-translit .translit-line {
-  display: block;
+.result-en {
+  font-family: "EB Garamond", Georgia, serif;
+  font-size: 15px;
+  color: var(--muted);
+  border-left: 2px solid var(--gold);
+  padding-left: 10px;
+  margin-top: 8px;
 }
 
-.result-item .result-en {
-  font-size: 14px;
-  color: var(--muted-text);
-  border-left: 2px solid var(--grid);
-  padding-left: 8px;
-  margin-top: 6px;
-}
-
-.result-item .jump-link {
-  font-size: 12px;
+.jump-link {
+  font-family: "EB Garamond", Georgia, serif;
+  font-size: 13px;
   font-weight: 700;
-  color: var(--accent);
+  color: var(--wine);
   text-decoration: none;
   display: inline-block;
-  margin-top: 6px;
-}
-
-.section-item {
-  cursor: pointer;
-}
-
-.section-item.open {
-  cursor: default;
-}
-
-.section-detail {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid var(--grid);
-}
-
-.stanza-block {
-  margin-bottom: 14px;
-}
-
-.stanza-type {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--muted-text);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  margin-bottom: 4px;
-}
-
-.verse-line {
-  font-size: 16px;
-  line-height: 1.6;
-  margin-bottom: 6px;
-}
-
-.verse-line .verse-num {
-  color: var(--muted-text);
-  font-weight: 700;
-  margin-right: 4px;
-  font-size: 12px;
-}
-
-.verse-en {
-  font-size: 14px;
-  color: var(--muted-text);
-  border-left: 2px solid var(--grid);
-  padding-left: 8px;
-  margin: 2px 0 8px;
-}
-
-.verse-en.pending {
-  font-style: italic;
-}
-
-.close-section-btn {
-  background: none;
-  border: 1px solid var(--grid);
-  color: var(--header-text);
-  font-size: 12px;
-  font-weight: 700;
-  padding: 5px 10px;
-  cursor: pointer;
-  border-radius: 2px;
-  margin-bottom: 10px;
-}
-
-.close-section-btn:hover {
-  border-color: var(--accent);
+  margin-top: 8px;
 }
 
 .empty-state {
-  color: var(--muted-text);
+  color: var(--muted);
   font-style: italic;
-  padding: 20px 0;
+  font-family: "EB Garamond", Georgia, serif;
+  padding: 20px 4px;
+  text-align: center;
 }
 
-@media (max-width: 760px) {
-  .search-row { flex-direction: column; }
-  .translit-toggle { align-self: flex-start; }
+/* =========================================================================
+   Reading mode — one hymn (verse) at a time, the default when a section
+   (Ganon) is opened. Meant to feel like an open hymnal page, not a web app.
+   ========================================================================= */
+
+.reading-card {
+  background: var(--paper-deep);
+  border: 1px solid var(--paper-line);
+  border-radius: 6px;
+  box-shadow: 0 4px 18px var(--shadow);
+  padding: 30px 34px 26px;
+}
+
+.reading-topline {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.back-link, .view-mode-toggle {
+  background: none;
+  border: none;
+  font-family: "EB Garamond", Georgia, serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--wine);
+  cursor: pointer;
+  padding: 4px 2px;
+}
+.back-link:hover, .view-mode-toggle:hover { color: var(--gold-bright); }
+
+.reading-heading {
+  font-family: "GHEA Avandakan", serif;
+  color: var(--wine);
+  font-size: 24px;
+  text-align: center;
+  margin: 4px 0 2px;
+  line-height: 1.3;
+}
+.reading-heading .translit-line {
+  text-align: center;
+  font-size: 14px;
+}
+
+.reading-category {
+  text-align: center;
+  font-family: "EB Garamond", Georgia, serif;
+  font-variant: small-caps;
+  letter-spacing: 0.05em;
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.genre-badge {
+  text-align: center;
+  font-family: "EB Garamond", Georgia, serif;
+  font-size: 13px;
+  font-style: italic;
+  color: var(--muted);
+  margin-bottom: 18px;
+}
+.genre-badge .genre-name { color: var(--wine); font-weight: 700; font-style: normal; }
+
+.verse-progress {
+  text-align: center;
+  font-family: "EB Garamond", Georgia, serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 14px;
+}
+
+.verse-armenian {
+  font-family: "GHEA Mariam", serif;
+  font-size: 25px;
+  line-height: 1.75;
+  color: var(--ink);
+  text-align: center;
+  margin: 0 0 4px;
+  padding: 0 6px;
+}
+
+.verse-armenian .dropcap {
+  font-family: "GHEA Avandakan", serif;
+  font-size: 2.7em;
+  color: var(--wine);
+  line-height: 0.7;
+  float: left;
+  padding: 0.08em 0.07em 0 0;
+}
+
+.verse-translit {
+  text-align: center;
+  font-size: 16px;
+  margin: 6px 0 18px;
+  display: none;
+}
+body.show-translit .verse-translit { display: block; }
+
+.verse-divider {
+  text-align: center;
+  color: var(--gold);
+  font-size: 15px;
+  letter-spacing: 0.3em;
+  margin: 4px 0 18px;
+  opacity: 0.75;
+}
+
+.verse-english {
+  font-family: "EB Garamond", Georgia, serif;
+  font-size: 20px;
+  line-height: 1.7;
+  color: var(--ink);
+  text-align: center;
+  padding: 0 10px;
+}
+
+.verse-english .dropcap {
+  font-family: "EB Garamond", Georgia, serif;
+  font-weight: 700;
+  font-size: 2.4em;
+  color: var(--wine);
+  line-height: 0.72;
+  float: left;
+  padding: 0.05em 0.06em 0 0;
+}
+
+.verse-english.pending {
+  font-style: italic;
+  color: var(--muted);
+  font-size: 15px;
+}
+
+.reading-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 28px;
+  padding-top: 16px;
+  border-top: 1px solid var(--paper-line);
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.nav-btn {
+  font-family: "EB Garamond", Georgia, serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--paper-deep);
+  background: var(--wine);
+  border: 1px solid var(--wine-deep);
+  border-radius: 3px;
+  padding: 9px 18px;
+  cursor: pointer;
+}
+.nav-btn:hover:not(:disabled) { background: var(--wine-deep); }
+.nav-btn:disabled { opacity: 0.35; cursor: default; }
+
+.jump-form {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: "EB Garamond", Georgia, serif;
+  font-size: 13px;
+  color: var(--muted);
+}
+.jump-form input {
+  width: 48px;
+  text-align: center;
+  font-family: "EB Garamond", Georgia, serif;
+  font-size: 14px;
+  border: 1px solid var(--paper-line);
+  background: var(--paper);
+  color: var(--ink);
+  border-radius: 3px;
+  padding: 4px;
+}
+
+.whole-canon-link {
+  text-align: center;
+  margin-top: 14px;
+}
+.whole-canon-link a {
+  font-family: "EB Garamond", Georgia, serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.whole-canon-link a:hover { color: var(--wine); }
+
+/* --- whole-canon (secondary) view --- */
+.stanza-block { margin-bottom: 20px; }
+.stanza-type-label {
+  font-family: "EB Garamond", Georgia, serif;
+  font-size: 12px;
+  font-weight: 700;
+  font-variant: small-caps;
+  color: var(--muted);
+  border-bottom: 1px solid var(--paper-line);
+  padding-bottom: 3px;
+  margin-bottom: 8px;
+}
+.whole-verse-line {
+  font-family: "GHEA Mariam", serif;
+  font-size: 18px;
+  line-height: 1.6;
+  margin-bottom: 4px;
+  cursor: pointer;
+}
+.whole-verse-line:hover { color: var(--wine); }
+.whole-verse-line .verse-num {
+  color: var(--gold);
+  font-weight: 700;
+  margin-right: 5px;
+  font-family: "EB Garamond", Georgia, serif;
+  font-size: 13px;
+}
+.whole-verse-en {
+  font-family: "EB Garamond", Georgia, serif;
+  font-size: 14px;
+  color: var(--muted);
+  border-left: 2px solid var(--paper-line);
+  padding-left: 8px;
+  margin: 2px 0 10px;
+}
+.whole-verse-en.pending { font-style: italic; }
+
+.footer-note {
+  text-align: center;
+  font-family: "EB Garamond", Georgia, serif;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.6;
+  margin-top: 30px;
+}
+.footer-note a { color: var(--wine); }
+
+@media (max-width: 640px) {
+  .hymnal-title { font-size: 32px; }
+  .verse-armenian { font-size: 21px; }
+  .verse-english { font-size: 17px; }
+  .reading-card { padding: 20px 16px 18px; }
+  .reading-nav { justify-content: center; }
 }

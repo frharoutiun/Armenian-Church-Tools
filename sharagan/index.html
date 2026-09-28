@@ -18,65 +18,60 @@
       }
     }());
   </script>
-  <title>Krapar Sharagnots Search &amp; Browse</title>
-  <link rel="stylesheet" href="../styles-v4.css">
+  <title>Krapar Sharagnots</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,700;1,400;1,500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="sharagan.css">
 </head>
 <body>
   <main class="app">
-    <header class="header">
-      <div class="title-block">
-        <h1>Krapar Sharagnots Search &amp; Browse<span class="badge-dev">In development</span></h1>
-        <p id="subtitle">The classical-Armenian (Krapar) text of Abp. Eprem Tabakian's Western Armenian Sharagan translation sharagnots, browsable and searchable by root word.</p>
-      </div>
-
-      <div class="header-actions">
+    <header class="hymnal-header">
+      <div class="ornament">֍</div>
+      <h1 class="hymnal-title">Շարակնոց<span class="badge-dev">In development</span></h1>
+      <p class="hymnal-subtitle">The Krapar Sharagan corpus of Abp. Eprem Tabakian's Western Armenian Sharagnots, for reading, browsing, and search.</p>
+      <div class="header-controls">
         <label class="translit-toggle">
           <input type="checkbox" id="translitToggle">
           Show Maroon Book transliteration
         </label>
-        <div class="theme-controls" aria-label="Color theme controls">
-          <label for="themeSelect">Theme</label>
-          <div class="theme-select-wrap">
-            <select id="themeSelect" aria-label="Choose color theme">
-              <option value="system">System</option>
-              <option value="light">Light</option>
-              <option value="dark">Dark</option>
-            </select>
-          </div>
+        <div class="theme-select-wrap">
+          <select id="themeSelect" aria-label="Choose color theme">
+            <option value="system">System</option>
+            <option value="light">Day</option>
+            <option value="dark">Night Office</option>
+          </select>
         </div>
       </div>
     </header>
 
-    <section class="card" aria-labelledby="search-heading">
-      <h2 id="search-heading">Search</h2>
+    <button id="searchToggle" class="search-reveal" hidden>Search &amp; browse the corpus</button>
+
+    <section class="panel" id="searchPanel" aria-labelledby="search-heading">
+      <h2 id="search-heading">Search the Corpus</h2>
       <div class="search-row">
-        <input type="search" id="searchInput" placeholder="Search an Armenian word (any declension of its root) or an English word&hellip;" aria-label="Search the corpus">
+        <input type="search" id="searchInput" placeholder="An Armenian word (any declension of its root) or an English word&hellip;" aria-label="Search the corpus">
       </div>
       <p class="search-hint">
-        Armenian search matches every case/number ending of a word's dictionary root, not just the exact spelling typed
-        &mdash; e.g. searching one form of "God" finds every form of it across the corpus. English search currently
-        only covers the one section that has been fully translated so far; more will appear as translation continues.
+        Armenian search matches every case/number ending of a word's dictionary root, not just the exact spelling
+        typed. English search currently covers only the one section fully translated so far.
       </p>
       <div id="facetRow"></div>
     </section>
 
-    <section class="card" aria-labelledby="results-heading">
+    <section class="panel" aria-labelledby="results-heading" style="padding-top:14px;">
       <h2 id="results-heading" style="position:absolute;left:-9999px;">Results</h2>
       <div id="resultsArea"></div>
     </section>
 
-    <section class="card notes" aria-labelledby="feedback-heading">
-      <h2 id="feedback-heading">About this tool</h2>
-      <p>
-        Armenian text is the corrected-spelling (dictionary-form) pass of the cleaned Krapar corpus. The
-        "Ganon" heading label follows the parish's own Maroon Book transliteration convention (via TR), not
-        a literal letter-by-letter transliteration. Root/declension search is powered by
-        <a href="https://pypi.org/project/uniparser-classical-armenian" target="_blank" rel="noopener">uniparser-classical-armenian</a>,
-        a rule-based morphological analyzer for literary Classical Armenian.
-      </p>
-      <p>Please send any feedback regarding accuracy or functionality to Fr. Haroutiun Sabounjian at frharoutiun@gmail.com.</p>
-    </section>
+    <p class="footer-note">
+      Armenian text is the corrected-spelling (dictionary-form) pass of the cleaned Krapar corpus. "Ganon" and
+      other transliterations follow the parish's Maroon Book convention (via <a href="https://frharoutiun.github.io/TR/" target="_blank" rel="noopener">TR</a>).
+      Root/declension search is powered by
+      <a href="https://pypi.org/project/uniparser-classical-armenian" target="_blank" rel="noopener">uniparser-classical-armenian</a>.
+      Hymn-type genres follow Fr. Daniel Findikyan's "Armenian Hymnography" (St. Nersess Armenian Seminary, LS323).
+      Questions or corrections: frharoutiun@gmail.com.
+    </p>
   </main>
 
   <script src="maroon-translit.js"></script>
