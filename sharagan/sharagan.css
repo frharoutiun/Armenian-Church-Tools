@@ -841,3 +841,166 @@ body.phrase-link .phrase-active {
   .reading-card { padding: 20px 16px 18px; }
   .reading-nav { justify-content: center; }
 }
+
+/* =========================================================================
+   Scripture reference — the connected Bible passage (Classical Armenian
+   from the Zohrab Bible, and the RSV) shown beside a hymn whose genre is
+   one of the fixed canticles, when the "Scripture reference" toggle is on.
+   ========================================================================= */
+
+/* When a hymn actually has a connected passage to show, the page itself
+   grows a bit wider so a genuine two-column layout has room to breathe -
+   scoped to reading mode only (toggled from JS), never affects browsing or
+   search. */
+body.wide-reading .app { max-width: 1180px; }
+
+.reading-body-grid {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 28px;
+  align-items: start;
+}
+
+.reading-hymn-col { min-width: 0; }
+
+.scripture-panel {
+  background: var(--paper);
+  border: 1px solid var(--paper-line);
+  border-radius: 6px;
+  padding: 18px 20px;
+  position: sticky;
+  top: 16px;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+}
+
+.scripture-entry-head { margin-bottom: 10px; }
+.scripture-entry-gloss {
+  font-family: "EB Garamond", Georgia, serif;
+  font-variant: small-caps;
+  letter-spacing: 0.08em;
+  font-size: 15px;
+  color: var(--gold);
+  font-weight: 700;
+}
+.scripture-entry-citation {
+  font-family: "EB Garamond", Georgia, serif;
+  font-style: italic;
+  font-size: 15px;
+  color: var(--wine);
+  margin-top: 2px;
+}
+
+.scripture-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.scripture-verse {
+  margin: 0 0 8px;
+  line-height: 1.5;
+}
+.scripture-verse-num {
+  font-family: "EB Garamond", Georgia, serif;
+  font-weight: 700;
+  color: var(--gold);
+  font-size: 11px;
+  vertical-align: super;
+  margin-right: 3px;
+}
+.scripture-verse.scripture-arm {
+  font-family: "GHEA Mariam", serif;
+  font-size: 15px;
+  color: var(--ink);
+}
+.scripture-verse.scripture-en {
+  font-family: "EB Garamond", Georgia, serif;
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.scripture-chapter-btn {
+  display: block;
+  margin-top: 14px;
+  background: none;
+  border: none;
+  font-family: "EB Garamond", Georgia, serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--wine);
+  cursor: pointer;
+  padding: 0;
+}
+.scripture-chapter-btn:hover { color: var(--gold-bright); }
+
+/* --- "View the whole chapter" dialogue --- */
+.scripture-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 12, 6, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 1000;
+}
+
+.scripture-dialog {
+  background: var(--paper-deep);
+  border: 1px solid var(--paper-line);
+  border-radius: 6px;
+  box-shadow: 0 12px 40px var(--shadow);
+  max-width: 1000px;
+  width: 100%;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.scripture-dialog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 22px;
+  border-bottom: 1px solid var(--paper-line);
+}
+.scripture-dialog-title {
+  font-family: "GHEA Avandakan", serif;
+  color: var(--wine);
+  font-size: 22px;
+}
+.scripture-dialog-close {
+  background: none;
+  border: none;
+  font-size: 26px;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px 8px;
+}
+.scripture-dialog-close:hover { color: var(--wine); }
+
+.scripture-dialog-body {
+  padding: 20px 22px 26px;
+  overflow-y: auto;
+}
+.scripture-dialog-body .scripture-columns { gap: 26px; }
+.scripture-dialog-body .scripture-verse.scripture-arm { font-size: 17px; }
+.scripture-dialog-body .scripture-verse.scripture-en { font-size: 16px; }
+
+@media (max-width: 900px) {
+  body.wide-reading .app { max-width: 880px; }
+  .reading-body-grid { grid-template-columns: 1fr; }
+  .scripture-panel {
+    position: static;
+    max-height: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .scripture-columns { grid-template-columns: 1fr; }
+  .scripture-dialog-overlay { padding: 12px; }
+  .scripture-dialog-head { padding: 12px 16px; }
+  .scripture-dialog-body { padding: 14px 16px 20px; }
+}
