@@ -908,6 +908,24 @@ body.wide-reading .app { max-width: 1180px; }
   color: var(--paper-deep);
 }
 
+/* The hymn side of the connection: the exact word/phrase within the
+   Sharagan text that a scripture passage was drawn from. Every connected
+   phrase (for any passage in this hymn, not just the one currently shown)
+   is a subtle, clickable link; the one matching the CURRENTLY ACTIVE tab
+   gets a real, persistent highlight - so glancing at the hymn shows you
+   at a glance which words the panel's current reference is about. */
+.scripture-hymn-link {
+  cursor: pointer;
+  border-bottom: 1px dotted var(--gold);
+}
+.scripture-hymn-link:hover { background: rgba(198, 156, 74, 0.16); }
+.scripture-hymn-link.active {
+  background: rgba(198, 156, 74, 0.32);
+  border-bottom: 1px solid var(--gold-bright);
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
 .scripture-entry-head { margin-bottom: 10px; }
 .scripture-entry-citation {
   font-family: "EB Garamond", Georgia, serif;

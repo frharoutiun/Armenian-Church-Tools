@@ -272,7 +272,7 @@
       if (!phraseText) return;
       var idx = text.indexOf(phraseText);
       if (idx === -1) return;
-      matches.push({ start: idx, end: idx + phraseText.length, id: i, text: phraseText });
+      matches.push({ start: idx, end: idx + phraseText.length, id: i, text: phraseText, kind: pair.kind || "phrase", tabIdx: pair.tabIdx });
     });
     matches.sort(function (a, b) { return a.start - b.start; });
     var accepted = [];
@@ -290,11 +290,28 @@
     var pos = 0;
     spans.forEach(function (m) {
       if (m.start > pos) segments.push({ text: text.slice(pos, m.start), id: null });
-      segments.push({ text: m.text, id: m.id });
+      segments.push({ text: m.text, id: m.id, kind: m.kind, tabIdx: m.tabIdx });
       pos = m.end;
     });
     if (pos < text.length) segments.push({ text: text.slice(pos), id: null });
     return segments;
+  }
+
+  // A phrase-pair-like entry (same {arm,en} shape locatePhraseSpans already
+  // expects) for every scripture passage in this stanza whose own hymnRef
+  // points at this specific verse - not just the currently active tab, so
+  // any connected phrase stays clickable even while a different tab is
+  // showing. Marked kind:"scripture" so the render loop gives it its own
+  // class/attributes instead of the phrase-link toggle's ".phrase".
+  function scriptureLinkPairsForVerse(passages, localVerseIdx) {
+    if (!passages || !passages.length) return [];
+    var out = [];
+    passages.forEach(function (p, tabIdx) {
+      if (p.hymnRef && p.hymnRef.verseIdx === localVerseIdx) {
+        out.push({ arm: p.hymnRef.arm, en: p.hymnRef.en, kind: "scripture", tabIdx: tabIdx });
+      }
+    });
+    return out;
   }
 
   // Renders one segment's worth of Armenian text: every Armenian word gets
@@ -321,7 +338,23 @@
     return html;
   }
 
-  function renderArmenianVerseHtml(rawText, phrasePairs, groupPrefix, highlightWord) {
+  // Scripture-hymn connections are the OUTER layer, always reserved first -
+  // a scripture-connected phrase is usually a real clause pulled out of a
+  // verse that's ALSO fully carved up into short phrase-link groups (after
+  // the phrase-link coverage fix, very little of a verse is left
+  // un-grouped), so it would almost always partially overlap one or more
+  // phrase-link spans rather than conveniently starting at the same point.
+  // Locating scripture spans first and only running phrase-link lookup
+  // inside whatever text is LEFT (not against the whole verse a second
+  // time) is what makes the scripture connection win that overlap instead
+  // of silently losing it to whichever phrase-link group already covered
+  // that stretch of text.
+  function scriptureWrapperHtml(seg, inner, activeScriptureTab) {
+    var isActive = seg.tabIdx === activeScriptureTab;
+    return '<span class="scripture-hymn-link' + (isActive ? " active" : "") + '" data-scripture-hymn-tab="' + seg.tabIdx + '">' + inner + "</span>";
+  }
+
+  function renderArmenianVerseHtml(rawText, phrasePairs, groupPrefix, highlightWord, scripturePairs, activeScriptureTab) {
     // The ornament (when present) is its own small glyph up front - it has
     // no letter value of its own, so it does NOT count as "the drop cap has
     // already been applied": the real first letter that follows it still
@@ -335,15 +368,22 @@
       while (restStart < rawText.length && /\s/.test(rawText.charAt(restStart))) restStart++;
       workText = rawText.slice(restStart);
     }
-    var spans = locatePhraseSpans(workText, phrasePairs, "arm");
-    textSegments(workText, spans).forEach(function (seg) {
-      var inner = armenianSegmentHtml(seg.text, dropCapState, highlightWord);
-      html += seg.id === null ? inner : '<span class="phrase" data-phrase-group="' + groupPrefix + "-" + seg.id + '">' + inner + "</span>";
+    var outer = textSegments(workText, locatePhraseSpans(workText, scripturePairs, "arm"));
+    outer.forEach(function (outerSeg) {
+      if (outerSeg.id === null) {
+        var innerSpans = locatePhraseSpans(outerSeg.text, phrasePairs, "arm");
+        textSegments(outerSeg.text, innerSpans).forEach(function (seg) {
+          var inner = armenianSegmentHtml(seg.text, dropCapState, highlightWord);
+          html += seg.id === null ? inner : '<span class="phrase" data-phrase-group="' + groupPrefix + "-" + seg.id + '">' + inner + "</span>";
+        });
+      } else {
+        html += scriptureWrapperHtml(outerSeg, armenianSegmentHtml(outerSeg.text, dropCapState, highlightWord), activeScriptureTab);
+      }
     });
     return html;
   }
 
-  function renderEnglishVerseHtml(armenianText, englishText, phrasePairs, groupPrefix) {
+  function renderEnglishVerseHtml(armenianText, englishText, phrasePairs, groupPrefix, scripturePairs, activeScriptureTab) {
     // As above: the ornament glyph (shown here only to visually pair with
     // the Armenian side) never counts as "the drop cap is already used" -
     // the real first letter of the English/transliterated text still gets
@@ -358,10 +398,17 @@
       dropApplied = true;
       return escapeHtml(m[1]) + '<span class="dropcap">' + escapeHtml(m[2]) + "</span>" + escapeHtml(m[3]);
     }
-    var spans = locatePhraseSpans(englishText, phrasePairs, "en");
-    textSegments(englishText, spans).forEach(function (seg) {
-      var inner = withDrop(seg.text);
-      html += seg.id === null ? inner : '<span class="phrase" data-phrase-group="' + groupPrefix + "-" + seg.id + '">' + inner + "</span>";
+    var outer = textSegments(englishText, locatePhraseSpans(englishText, scripturePairs, "en"));
+    outer.forEach(function (outerSeg) {
+      if (outerSeg.id === null) {
+        var innerSpans = locatePhraseSpans(outerSeg.text, phrasePairs, "en");
+        textSegments(outerSeg.text, innerSpans).forEach(function (seg) {
+          var inner = withDrop(seg.text);
+          html += seg.id === null ? inner : '<span class="phrase" data-phrase-group="' + groupPrefix + "-" + seg.id + '">' + inner + "</span>";
+        });
+      } else {
+        html += scriptureWrapperHtml(outerSeg, withDrop(outerSeg.text), activeScriptureTab);
+      }
     });
     return html;
   }
@@ -863,6 +910,20 @@
         openScriptureDialog(parseInt(btn.getAttribute("data-scripture-chapter"), 10) || 0, btn);
       });
     });
+    // The hymn side of the connection: a word/phrase actually inside the
+    // Sharagan text that a scripture passage was drawn from. Clicking it
+    // (same as clicking its tab pill) switches the panel to that passage -
+    // a real, clickable link both ways, not just a one-way "here's a
+    // citation" note. Guarded against a text-selection drag, same as the
+    // word-link click-to-search handler.
+    container.querySelectorAll("[data-scripture-hymn-tab]").forEach(function (span) {
+      span.addEventListener("click", function () {
+        var sel = window.getSelection();
+        if (sel && sel.toString().length) return;
+        scriptureActiveTab = parseInt(span.getAttribute("data-scripture-hymn-tab"), 10) || 0;
+        rerender();
+      });
+    });
   }
 
   // --- reading mode: one Sharagan (hymn = a whole stanza's verses) at a time ---
@@ -903,12 +964,17 @@
       var globalVi = flatVerseIndex(section, stanzaIdx, vi);
       var pairs = alignmentFor(section.id, globalVi);
       var groupPrefix = "p" + section.id + "-" + globalVi;
+      // Only the real Armenian original and the real English translation
+      // get scripture-hymn links wired in - not the transliteration line,
+      // which is a display variant of the same Armenian, not a second
+      // language a scripture passage could meaningfully connect to.
+      var scripturePairs = hasScripture ? scriptureLinkPairsForVerse(scriptureEntries, vi) : [];
       html += '<div class="sharagan-verse' + (highlighted ? " highlighted" : "") + '"' + (highlighted ? ' id="highlighted-verse"' : "") + '>';
-      html += '<div class="verse-armenian script-original">' + renderArmenianVerseHtml(verse.text, pairs, groupPrefix, highlighted ? state.highlightWord : null) + '</div>';
+      html += '<div class="verse-armenian script-original">' + renderArmenianVerseHtml(verse.text, pairs, groupPrefix, highlighted ? state.highlightWord : null, scripturePairs, scriptureActiveTab) + '</div>';
       html += '<div class="verse-armenian script-translit">' + renderEnglishVerseHtml(verse.text, translitText, null, groupPrefix) + '</div>';
       html += '<div class="verse-divider">&#10022;</div>';
       if (verse.en) {
-        html += '<div class="verse-english">' + renderEnglishVerseHtml(verse.text, verse.en, pairs, groupPrefix) + '</div>';
+        html += '<div class="verse-english">' + renderEnglishVerseHtml(verse.text, verse.en, pairs, groupPrefix, scripturePairs, scriptureActiveTab) + '</div>';
       } else {
         html += '<div class="verse-english pending">English translation not yet available for this verse.</div>';
       }
