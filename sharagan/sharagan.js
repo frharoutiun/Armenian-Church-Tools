@@ -285,16 +285,81 @@
     return accepted;
   }
 
-  function textSegments(text, spans) {
-    var segments = [];
-    var pos = 0;
-    spans.forEach(function (m) {
-      if (m.start > pos) segments.push({ text: text.slice(pos, m.start), id: null });
-      segments.push({ text: m.text, id: m.id, kind: m.kind, tabIdx: m.tabIdx });
-      pos = m.end;
+  // Groups consecutive items sharing the same key (compared by ===, so a
+  // shared span object or a shared null both count as "the same group") -
+  // a small run-length encoding used to keep adjacent same-key pieces as
+  // ONE wrapper instead of a new element per minimal cut segment.
+  function groupConsecutive(items, getKey) {
+    var groups = [];
+    items.forEach(function (item) {
+      var k = getKey(item);
+      var last = groups[groups.length - 1];
+      if (last && last.key === k) {
+        last.items.push(item);
+      } else {
+        groups.push({ key: k, items: [item] });
+      }
     });
-    if (pos < text.length) segments.push({ text: text.slice(pos), id: null });
+    return groups;
+  }
+
+  // Phrase-link spans and scripture spans are located INDEPENDENTLY over
+  // the same full text (each against the whole verse, never against a
+  // remainder left by the other), then cut into minimal segments at every
+  // boundary either layer introduces. This is what lets a stretch of text
+  // be simultaneously a phrase-link pair AND a scripture connection - a
+  // reader hovering the phrase sees its gold highlight layer INSIDE the
+  // scripture span's own wine-colored highlight, rather than one silently
+  // pre-empting the other.
+  function partitionLayeredText(text, scriptureSpans, phraseSpans) {
+    var cuts = { 0: true };
+    cuts[text.length] = true;
+    scriptureSpans.concat(phraseSpans).forEach(function (s) {
+      cuts[s.start] = true;
+      cuts[s.end] = true;
+    });
+    var points = Object.keys(cuts).map(Number).sort(function (a, b) { return a - b; });
+    function spanContaining(spans, start, end) {
+      for (var i = 0; i < spans.length; i++) {
+        if (spans[i].start <= start && end <= spans[i].end) return spans[i];
+      }
+      return null;
+    }
+    var segments = [];
+    for (var i = 0; i < points.length - 1; i++) {
+      var segStart = points[i], segEnd = points[i + 1];
+      if (segStart >= segEnd) continue;
+      segments.push({
+        text: text.slice(segStart, segEnd),
+        scripture: spanContaining(scriptureSpans, segStart, segEnd),
+        phrase: spanContaining(phraseSpans, segStart, segEnd),
+      });
+    }
     return segments;
+  }
+
+  // Renders the merged scripture/phrase-link layers for one verse's text.
+  // Scripture wrappers stay ONE contiguous element per connected stretch
+  // (grouped across any phrase-link boundaries that fall inside it, so
+  // there's no visible seam from the padding/rounded corners repeating);
+  // phrase-link wrappers are grouped the same way but only WITHIN each
+  // scripture group, so a phrase that straddles a scripture boundary still
+  // renders as two elements sharing one data-phrase-group id (already
+  // handled by the hover wiring, which queries by that shared id, not by
+  // DOM adjacency).
+  function renderLayeredText(text, scriptureSpans, phraseSpans, groupPrefix, activeScriptureTab, renderChunk) {
+    var segments = partitionLayeredText(text, scriptureSpans, phraseSpans);
+    var html = "";
+    groupConsecutive(segments, function (s) { return s.scripture; }).forEach(function (sg) {
+      var inner = "";
+      groupConsecutive(sg.items, function (s) { return s.phrase; }).forEach(function (pg) {
+        var chunkText = pg.items.map(function (s) { return s.text; }).join("");
+        var rendered = renderChunk(chunkText);
+        inner += pg.key ? '<span class="phrase" data-phrase-group="' + groupPrefix + "-" + pg.key.id + '">' + rendered + "</span>" : rendered;
+      });
+      html += sg.key ? scriptureWrapperHtml(sg.key, inner, activeScriptureTab) : inner;
+    });
+    return html;
   }
 
   // A phrase-pair-like entry (same {arm,en} shape locatePhraseSpans already
@@ -338,20 +403,9 @@
     return html;
   }
 
-  // Scripture-hymn connections are the OUTER layer, always reserved first -
-  // a scripture-connected phrase is usually a real clause pulled out of a
-  // verse that's ALSO fully carved up into short phrase-link groups (after
-  // the phrase-link coverage fix, very little of a verse is left
-  // un-grouped), so it would almost always partially overlap one or more
-  // phrase-link spans rather than conveniently starting at the same point.
-  // Locating scripture spans first and only running phrase-link lookup
-  // inside whatever text is LEFT (not against the whole verse a second
-  // time) is what makes the scripture connection win that overlap instead
-  // of silently losing it to whichever phrase-link group already covered
-  // that stretch of text.
-  function scriptureWrapperHtml(seg, inner, activeScriptureTab) {
-    var isActive = seg.tabIdx === activeScriptureTab;
-    return '<span class="scripture-hymn-link' + (isActive ? " active" : "") + '" data-scripture-hymn-tab="' + seg.tabIdx + '">' + inner + "</span>";
+  function scriptureWrapperHtml(scriptureSpan, inner, activeScriptureTab) {
+    var isActive = scriptureSpan.tabIdx === activeScriptureTab;
+    return '<span class="scripture-hymn-link' + (isActive ? " active" : "") + '" data-scripture-hymn-tab="' + scriptureSpan.tabIdx + '">' + inner + "</span>";
   }
 
   function renderArmenianVerseHtml(rawText, phrasePairs, groupPrefix, highlightWord, scripturePairs, activeScriptureTab) {
@@ -368,17 +422,10 @@
       while (restStart < rawText.length && /\s/.test(rawText.charAt(restStart))) restStart++;
       workText = rawText.slice(restStart);
     }
-    var outer = textSegments(workText, locatePhraseSpans(workText, scripturePairs, "arm"));
-    outer.forEach(function (outerSeg) {
-      if (outerSeg.id === null) {
-        var innerSpans = locatePhraseSpans(outerSeg.text, phrasePairs, "arm");
-        textSegments(outerSeg.text, innerSpans).forEach(function (seg) {
-          var inner = armenianSegmentHtml(seg.text, dropCapState, highlightWord);
-          html += seg.id === null ? inner : '<span class="phrase" data-phrase-group="' + groupPrefix + "-" + seg.id + '">' + inner + "</span>";
-        });
-      } else {
-        html += scriptureWrapperHtml(outerSeg, armenianSegmentHtml(outerSeg.text, dropCapState, highlightWord), activeScriptureTab);
-      }
+    var scriptureSpans = locatePhraseSpans(workText, scripturePairs, "arm");
+    var phraseSpans = locatePhraseSpans(workText, phrasePairs, "arm");
+    html += renderLayeredText(workText, scriptureSpans, phraseSpans, groupPrefix, activeScriptureTab, function (chunk) {
+      return armenianSegmentHtml(chunk, dropCapState, highlightWord);
     });
     return html;
   }
@@ -398,18 +445,9 @@
       dropApplied = true;
       return escapeHtml(m[1]) + '<span class="dropcap">' + escapeHtml(m[2]) + "</span>" + escapeHtml(m[3]);
     }
-    var outer = textSegments(englishText, locatePhraseSpans(englishText, scripturePairs, "en"));
-    outer.forEach(function (outerSeg) {
-      if (outerSeg.id === null) {
-        var innerSpans = locatePhraseSpans(outerSeg.text, phrasePairs, "en");
-        textSegments(outerSeg.text, innerSpans).forEach(function (seg) {
-          var inner = withDrop(seg.text);
-          html += seg.id === null ? inner : '<span class="phrase" data-phrase-group="' + groupPrefix + "-" + seg.id + '">' + inner + "</span>";
-        });
-      } else {
-        html += scriptureWrapperHtml(outerSeg, withDrop(outerSeg.text), activeScriptureTab);
-      }
-    });
+    var scriptureSpans = locatePhraseSpans(englishText, scripturePairs, "en");
+    var phraseSpans = locatePhraseSpans(englishText, phrasePairs, "en");
+    html += renderLayeredText(englishText, scriptureSpans, phraseSpans, groupPrefix, activeScriptureTab, withDrop);
     return html;
   }
 
