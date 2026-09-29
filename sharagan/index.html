@@ -19,9 +19,6 @@
     }());
   </script>
   <title>Krapar Sharagnots</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,700;1,400;1,500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="sharagan.css">
 </head>
 <body>
@@ -29,17 +26,21 @@
     <header class="hymnal-header">
       <div class="ornament">֍</div>
       <h1 class="hymnal-title">Շարակնոց<span class="badge-dev">In development</span></h1>
-      <p class="hymnal-subtitle">The Krapar Sharagan corpus of Abp. Eprem Tabakian's Western Armenian Sharagnots, for reading, browsing, and search.</p>
+      <p class="hymnal-subtitle">The Krapar (Classical Armenian) Sharagnots of the Armenian Church, for reading, browsing, and search.</p>
       <div class="header-controls">
         <label class="translit-toggle">
           <input type="checkbox" id="translitToggle">
-          Show Maroon Book transliteration
+          Transliteration
+        </label>
+        <label class="translit-toggle">
+          <input type="checkbox" id="phraseLinkToggle">
+          Link matching phrases
         </label>
         <div class="theme-select-wrap">
           <select id="themeSelect" aria-label="Choose color theme">
             <option value="system">System</option>
             <option value="light">Day</option>
-            <option value="dark">Night Office</option>
+            <option value="dark">Night Hour</option>
           </select>
         </div>
       </div>
@@ -65,12 +66,19 @@
     </section>
 
     <p class="footer-note">
-      Armenian text is the corrected-spelling (dictionary-form) pass of the cleaned Krapar corpus. "Ganon" and
-      other transliterations follow the parish's Maroon Book convention (via <a href="https://frharoutiun.github.io/TR/" target="_blank" rel="noopener">TR</a>).
-      Root/declension search is powered by
-      <a href="https://pypi.org/project/uniparser-classical-armenian" target="_blank" rel="noopener">uniparser-classical-armenian</a>.
-      Hymn-type genres follow Fr. Daniel Findikyan's "Armenian Hymnography" (St. Nersess Armenian Seminary, LS323).
-      Questions or corrections: frharoutiun@gmail.com.
+      <strong>About this text.</strong> The Krapar (Classical Armenian) text here is the Sharagnots of the Armenian
+      Church itself, not a translation - taken from the edition Abp. Eprem Tabakian published, in which he placed
+      his own Western Armenian translation of the Sharagnots alongside the original Krapar. This tool uses only
+      the original Krapar text; his Western Armenian translation is not reproduced here.
+    </p>
+    <p class="footer-note">
+      <strong>About this site.</strong> Armenian text is the corrected-spelling (dictionary-form) pass of the
+      cleaned Krapar corpus. "Ganon" and other transliterations follow the parish's Maroon Book convention (via
+      <a href="https://frharoutiun.github.io/TR/" target="_blank" rel="noopener">TR</a>). Root/declension search is
+      powered by <a href="https://pypi.org/project/uniparser-classical-armenian" target="_blank" rel="noopener">uniparser-classical-armenian</a>,
+      which analyzes every unique word form in the corpus against its dictionary root. Hymn-type genres follow Fr.
+      Daniel Findikyan's "Armenian Hymnography" (St. Nersess Armenian Seminary, LS323). English translations are
+      being added section by section. Questions or corrections: frharoutiun@gmail.com.
     </p>
   </main>
 

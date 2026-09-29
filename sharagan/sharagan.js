@@ -55,6 +55,24 @@
     });
   }
 
+  // --- phrase-link toggle: off by default, hovering an Armenian phrase
+  // highlights its English equivalent (and vice versa) only while this is on ---
+  var phraseLinkToggle = document.getElementById("phraseLinkToggle");
+  var PHRASE_LINK_KEY = "sharaganPhraseLink";
+  function applyPhraseLinkState(on) {
+    document.body.classList.toggle("phrase-link", on);
+    if (phraseLinkToggle) phraseLinkToggle.checked = on;
+  }
+  var savedPhraseLink = false;
+  try { savedPhraseLink = localStorage.getItem(PHRASE_LINK_KEY) === "1"; } catch (e) {}
+  applyPhraseLinkState(savedPhraseLink);
+  if (phraseLinkToggle) {
+    phraseLinkToggle.addEventListener("change", function () {
+      applyPhraseLinkState(phraseLinkToggle.checked);
+      try { localStorage.setItem(PHRASE_LINK_KEY, phraseLinkToggle.checked ? "1" : "0"); } catch (e) {}
+    });
+  }
+
   // TR's own decodeChar has a real bug on shouting-case input: Armenian
   // upper/lowercase are distinct codepoints, and several letters map to a
   // two-letter Latin unit (Ձ->"Dz", Ղ->"Gh"...) - decodeChar capitalizes
@@ -87,7 +105,7 @@
   }
 
   // --- data ---
-  var corpus = null, searchIndex = null, wordForms = null, facets = null;
+  var corpus = null, searchIndex = null, wordForms = null, facets = null, alignments = null;
 
   var state = {
     query: "",
@@ -97,6 +115,7 @@
     openSection: null,
     openStanzaIdx: 0,
     highlightVerseIdx: null, // local index within the open stanza, from a search jump
+    highlightWord: null, // the specific matched surface form, bolded within that verse
     wholeCanon: false,
   };
 
@@ -156,34 +175,167 @@
     var html = "";
     var rest = parts;
     if (parts.length > 1) {
-      html += '<div class="heading-eyebrow">' + escapeHtml(parts[0]) + '<div class="translit-line">' + escapeHtml(translit(parts[0])) + '</div></div>';
+      html += '<div class="heading-eyebrow script-original">' + escapeHtml(parts[0]) + '</div>';
+      html += '<div class="heading-eyebrow script-translit">' + escapeHtml(translit(parts[0])) + '</div>';
       rest = parts.slice(1);
     }
     rest.forEach(function (line) {
-      html += '<div class="' + mainClass + '">' + escapeHtml(line) + '<div class="translit-line">' + escapeHtml(translit(line)) + '</div></div>';
+      html += '<div class="' + mainClass + ' script-original">' + escapeHtml(line) + '</div>';
+      html += '<div class="' + mainClass + ' script-translit">' + escapeHtml(translit(line)) + '</div>';
     });
     return html;
   }
 
-  // Wraps the first Armenian/Latin letter of a string in a drop-cap span.
-  function withDropCap(text) {
-    var s = escapeHtml(text);
-    var m = s.match(/^([^\s])/);
-    if (!m) return s;
-    var cls = m[1] === ORNAMENT ? "dropcap dropcap-ornament" : "dropcap";
-    return '<span class="' + cls + '">' + m[1] + "</span>" + s.slice(1);
+  // --- Armenian word click-to-search, and Armenian/English phrase-hover
+  // linking, in the main reading view. Both wrap spans around ranges of the
+  // verse text; they compose (a phrase span can contain several word-link
+  // spans) rather than conflicting, and the verse-opening drop cap is
+  // applied to whichever segment actually holds the first letter, so it
+  // stays part of that first word/phrase rather than sitting on its own.
+  var ARMENIAN_WORD_RE = /[Ա-Ֆա-և]+/g;
+
+  function flatVerseIndex(section, stanzaIdx, localVerseIdx) {
+    var flat = 0;
+    for (var i = 0; i < stanzaIdx; i++) flat += section.stanzas[i].verses.length;
+    return flat + localVerseIdx;
   }
 
-  // When the Armenian verse itself opens with the ornament mark, the
-  // English translation of that same verse gets the same ornament as its
-  // drop cap too, instead of an unrelated plain letter - the two should
-  // visibly mark the same special verse together.
-  function withMatchingDropCap(armenianText, englishText) {
-    var startsWithOrnament = armenianText.trim().charAt(0) === ORNAMENT;
-    if (startsWithOrnament) {
-      return '<span class="dropcap dropcap-ornament">' + ORNAMENT + "</span>" + escapeHtml(englishText);
+  function alignmentFor(sectionId, globalVerseIdx) {
+    var bySection = alignments && alignments[String(sectionId)];
+    return (bySection && bySection[String(globalVerseIdx)]) || null;
+  }
+
+  // Finds each phrase's own position independently (not a shared moving
+  // cursor) so the two languages can list phrases in whichever order their
+  // own word order happens to put them - Classical Armenian word order
+  // doesn't have to match the English translation's order.
+  function locatePhraseSpans(text, phrases, key) {
+    var matches = [];
+    (phrases || []).forEach(function (pair, i) {
+      var phraseText = pair[key];
+      if (!phraseText) return;
+      var idx = text.indexOf(phraseText);
+      if (idx === -1) return;
+      matches.push({ start: idx, end: idx + phraseText.length, id: i, text: phraseText });
+    });
+    matches.sort(function (a, b) { return a.start - b.start; });
+    var accepted = [];
+    var cursor = 0;
+    matches.forEach(function (m) {
+      if (m.start < cursor) return;
+      accepted.push(m);
+      cursor = m.end;
+    });
+    return accepted;
+  }
+
+  function textSegments(text, spans) {
+    var segments = [];
+    var pos = 0;
+    spans.forEach(function (m) {
+      if (m.start > pos) segments.push({ text: text.slice(pos, m.start), id: null });
+      segments.push({ text: m.text, id: m.id });
+      pos = m.end;
+    });
+    if (pos < text.length) segments.push({ text: text.slice(pos), id: null });
+    return segments;
+  }
+
+  // Renders one segment's worth of Armenian text: every Armenian word gets
+  // a click-to-search span, and the very first letter overall (tracked via
+  // dropCapState across all segments/calls for one verse) gets the drop cap.
+  function armenianSegmentHtml(text, dropCapState, highlightWord) {
+    var html = "";
+    var last = 0;
+    text.replace(ARMENIAN_WORD_RE, function (word, offset) {
+      html += escapeHtml(text.slice(last, offset));
+      var inner;
+      if (!dropCapState.applied) {
+        inner = '<span class="dropcap">' + escapeHtml(word.charAt(0)) + "</span>" + escapeHtml(word.slice(1));
+        dropCapState.applied = true;
+      } else {
+        inner = escapeHtml(word);
+      }
+      var cls = "word-link" + (highlightWord && word === highlightWord ? " word-match" : "");
+      html += '<span class="' + cls + '" data-word="' + escapeHtml(word) + '">' + inner + "</span>";
+      last = offset + word.length;
+      return word;
+    });
+    html += escapeHtml(text.slice(last));
+    return html;
+  }
+
+  function renderArmenianVerseHtml(rawText, phrasePairs, groupPrefix, highlightWord) {
+    var dropCapState = { applied: false };
+    var html = "";
+    var workText = rawText;
+    if (rawText.charAt(0) === ORNAMENT) {
+      html += '<span class="dropcap dropcap-ornament">' + ORNAMENT + "</span>";
+      dropCapState.applied = true;
+      var restStart = 1;
+      while (restStart < rawText.length && /\s/.test(rawText.charAt(restStart))) restStart++;
+      workText = rawText.slice(restStart);
     }
-    return withDropCap(englishText);
+    var spans = locatePhraseSpans(workText, phrasePairs, "arm");
+    textSegments(workText, spans).forEach(function (seg) {
+      var inner = armenianSegmentHtml(seg.text, dropCapState, highlightWord);
+      html += seg.id === null ? inner : '<span class="phrase" data-phrase-group="' + groupPrefix + "-" + seg.id + '">' + inner + "</span>";
+    });
+    return html;
+  }
+
+  function renderEnglishVerseHtml(armenianText, englishText, phrasePairs, groupPrefix) {
+    var dropApplied = armenianText.charAt(0) === ORNAMENT;
+    var html = dropApplied ? '<span class="dropcap dropcap-ornament">' + ORNAMENT + "</span>" : "";
+    function withDrop(text) {
+      if (dropApplied || !text.length) return escapeHtml(text);
+      var m = text.match(/^(\s*)([^\s])([\s\S]*)$/);
+      if (!m) return escapeHtml(text);
+      dropApplied = true;
+      return escapeHtml(m[1]) + '<span class="dropcap">' + escapeHtml(m[2]) + "</span>" + escapeHtml(m[3]);
+    }
+    var spans = locatePhraseSpans(englishText, phrasePairs, "en");
+    textSegments(englishText, spans).forEach(function (seg) {
+      var inner = withDrop(seg.text);
+      html += seg.id === null ? inner : '<span class="phrase" data-phrase-group="' + groupPrefix + "-" + seg.id + '">' + inner + "</span>";
+    });
+    return html;
+  }
+
+  // Click a word -> jump to the root-word search for it (every declined
+  // form of that word's dictionary root, corpus-wide) - like arak29. A
+  // click that follows a text-drag (the user was selecting/copying, not
+  // clicking) is ignored, so normal copy/paste still works.
+  function wireWordLinks(container) {
+    container.querySelectorAll(".word-link[data-word]").forEach(function (span) {
+      span.addEventListener("click", function () {
+        var sel = window.getSelection();
+        if (sel && String(sel).length > 0) return;
+        var word = span.getAttribute("data-word");
+        state.openSection = null;
+        state.query = word;
+        if (el.searchInput) el.searchInput.value = word;
+        renderFacets();
+        renderMain();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      });
+    });
+  }
+
+  // Hovering any phrase span highlights every span sharing its group (its
+  // Armenian half and its English half together), only while the
+  // phrase-link toggle is on (guarded in CSS by body.phrase-link).
+  function wirePhraseHover(container) {
+    container.querySelectorAll(".phrase[data-phrase-group]").forEach(function (span) {
+      var group = span.getAttribute("data-phrase-group");
+      var siblings = container.querySelectorAll('.phrase[data-phrase-group="' + group + '"]');
+      span.addEventListener("mouseenter", function () {
+        siblings.forEach(function (s) { s.classList.add("phrase-active"); });
+      });
+      span.addEventListener("mouseleave", function () {
+        siblings.forEach(function (s) { s.classList.remove("phrase-active"); });
+      });
+    });
   }
 
   function loadAll() {
@@ -192,11 +344,13 @@
       fetch("data/search-index.json").then(function (r) { return r.json(); }),
       fetch("data/word-forms.json").then(function (r) { return r.json(); }),
       fetch("data/facets.json").then(function (r) { return r.json(); }),
+      fetch("data/alignments.json").then(function (r) { return r.json(); }).catch(function () { return {}; }),
     ]).then(function (results) {
       corpus = results[0];
       searchIndex = results[1];
       wordForms = results[2];
       facets = results[3];
+      alignments = results[4];
     });
   }
 
@@ -354,12 +508,14 @@
     return results;
   }
 
-  function renderResultItem(section, verse, verseIdx) {
-    var html = '<div class="result-item" data-jump-section="' + section.id + '" data-jump-verse="' + verseIdx + '">';
-    html += '<div class="result-loc">' + escapeHtml(compactHeading(section.heading)) + '</div><br>';
-    html += '<div class="translit-line" style="display:inline-block;margin-bottom:6px;">' + escapeHtml(translit(compactHeading(section.heading))) + '</div>';
-    html += '<div class="result-text">' + escapeHtml(verse.text) + '</div>';
-    html += '<div class="translit-line">' + escapeHtml(translit(verse.text)) + '</div>';
+  function renderResultItem(section, verse, verseIdx, matchedWord) {
+    var heading = compactHeading(section.heading);
+    var html = '<div class="result-item" data-jump-section="' + section.id + '" data-jump-verse="' + verseIdx
+      + '" data-jump-word="' + escapeHtml(matchedWord || "") + '">';
+    html += '<div class="result-loc script-original">' + escapeHtml(heading) + '</div>';
+    html += '<div class="result-loc script-translit">' + escapeHtml(translit(heading)) + '</div>';
+    html += '<div class="result-text script-original">' + escapeHtml(verse.text) + '</div>';
+    html += '<div class="result-text script-translit">' + escapeHtml(translit(verse.text)) + '</div>';
     if (verse.en) html += '<div class="result-en">' + escapeHtml(verse.en) + '</div>';
     html += '<div class="jump-link">Open this hymn &rarr;</div>';
     html += '</div>';
@@ -381,7 +537,7 @@
         html += '<div class="empty-state">No matches found for this word or root in the corpus.</div>';
       } else {
         out.results.slice(0, 300).forEach(function (r) {
-          html += renderResultItem(r.section, r.verse, r.verseIdx);
+          html += renderResultItem(r.section, r.verse, r.verseIdx, r.form);
         });
         if (out.results.length > 300) {
           html += '<div class="results-summary">Showing the first 300 of ' + out.results.length + ' matches.</div>';
@@ -408,6 +564,7 @@
         state.openSection = sectionId;
         state.openStanzaIdx = loc.stanzaIdx;
         state.highlightVerseIdx = loc.localVerseIdx;
+        state.highlightWord = item.getAttribute("data-jump-word") || null;
         state.wholeCanon = false;
         renderMain();
         window.scrollTo({ top: 0, behavior: "smooth" });
@@ -417,10 +574,11 @@
 
   // --- browse (section list) ---
   function renderSectionSummary(section) {
+    var heading = compactHeading(section.heading);
     var html = '<div class="section-item" data-section="' + section.id + '">';
-    html += '<div class="section-cat">' + escapeHtml(section.category) + '</div><br>';
-    html += '<div class="section-heading" style="font-size:19px;">' + escapeHtml(compactHeading(section.heading)) + '</div>';
-    html += '<div class="translit-line">' + escapeHtml(translit(compactHeading(section.heading))) + '</div>';
+    html += '<div class="section-cat">' + escapeHtml(section.category) + '</div>';
+    html += '<div class="section-heading script-original" style="font-size:19px;">' + escapeHtml(heading) + '</div>';
+    html += '<div class="section-heading script-translit" style="font-size:19px;">' + escapeHtml(translit(heading)) + '</div>';
     html += '</div>';
     return html;
   }
@@ -478,7 +636,7 @@
       item.addEventListener("click", function () {
         state.openSection = parseInt(item.getAttribute("data-section"), 10);
         state.openStanzaIdx = 0;
-        state.highlightVerseIdx = null;
+        state.highlightVerseIdx = null; state.highlightWord = null;
         state.wholeCanon = false;
         renderMain();
         window.scrollTo({ top: 0, behavior: "smooth" });
@@ -520,7 +678,7 @@
     container.querySelectorAll("[data-jump-stanza]").forEach(function (chip) {
       chip.addEventListener("click", function () {
         state.openStanzaIdx = parseInt(chip.getAttribute("data-jump-stanza"), 10);
-        state.highlightVerseIdx = null;
+        state.highlightVerseIdx = null; state.highlightWord = null;
         renderMain();
       });
     });
@@ -544,22 +702,25 @@
 
     html += genreBadgeHtml(stanza);
     html += '<div class="verse-progress">Sharagan ' + (stanzaIdx + 1) + ' of ' + section.stanzas.length + '</div>';
+    html += renderSharaganNav(section, stanzaIdx);
 
     stanza.verses.forEach(function (verse, vi) {
       var highlighted = highlightIdx !== null && vi === highlightIdx;
+      var translitText = translit(verse.text);
+      var globalVi = flatVerseIndex(section, stanzaIdx, vi);
+      var pairs = alignmentFor(section.id, globalVi);
+      var groupPrefix = "p" + section.id + "-" + globalVi;
       html += '<div class="sharagan-verse' + (highlighted ? " highlighted" : "") + '"' + (highlighted ? ' id="highlighted-verse"' : "") + '>';
-      html += '<div class="verse-armenian">' + withDropCap(verse.text) + '</div>';
-      html += '<div class="verse-translit">' + escapeHtml(translit(verse.text)) + '</div>';
+      html += '<div class="verse-armenian script-original">' + renderArmenianVerseHtml(verse.text, pairs, groupPrefix, highlighted ? state.highlightWord : null) + '</div>';
+      html += '<div class="verse-armenian script-translit">' + renderEnglishVerseHtml(verse.text, translitText, null, groupPrefix) + '</div>';
       html += '<div class="verse-divider">&#10022;</div>';
       if (verse.en) {
-        html += '<div class="verse-english">' + withMatchingDropCap(verse.text, verse.en) + '</div>';
+        html += '<div class="verse-english">' + renderEnglishVerseHtml(verse.text, verse.en, pairs, groupPrefix) + '</div>';
       } else {
         html += '<div class="verse-english pending">English translation not yet available for this verse.</div>';
       }
       html += '</div>';
     });
-
-    html += renderSharaganNav(section, stanzaIdx);
 
     html += '<div class="reading-nav">';
     html += '<button class="nav-btn" data-nav="prev"' + (stanzaIdx === 0 ? " disabled" : "") + '>&larr; Previous Sharagan</button>';
@@ -579,9 +740,11 @@
     });
     var prevBtn = el.resultsArea.querySelector('[data-nav="prev"]');
     var nextBtn = el.resultsArea.querySelector('[data-nav="next"]');
-    if (prevBtn) prevBtn.addEventListener("click", function () { state.openStanzaIdx = stanzaIdx - 1; state.highlightVerseIdx = null; renderMain(); });
-    if (nextBtn) nextBtn.addEventListener("click", function () { state.openStanzaIdx = stanzaIdx + 1; state.highlightVerseIdx = null; renderMain(); });
+    if (prevBtn) prevBtn.addEventListener("click", function () { state.openStanzaIdx = stanzaIdx - 1; state.highlightVerseIdx = null; state.highlightWord = null; renderMain(); });
+    if (nextBtn) nextBtn.addEventListener("click", function () { state.openStanzaIdx = stanzaIdx + 1; state.highlightVerseIdx = null; state.highlightWord = null; renderMain(); });
     wireSharaganNav(el.resultsArea);
+    wireWordLinks(el.resultsArea);
+    wirePhraseHover(el.resultsArea);
 
     if (highlightIdx !== null) {
       var target = document.getElementById("highlighted-verse");
@@ -592,8 +755,8 @@
     document.onkeydown = function (ev) {
       if (state.openSection === null || state.wholeCanon) return;
       if (ev.target && (ev.target.tagName === "INPUT" || ev.target.tagName === "TEXTAREA")) return;
-      if (ev.key === "ArrowRight" && stanzaIdx < section.stanzas.length - 1) { state.openStanzaIdx = stanzaIdx + 1; state.highlightVerseIdx = null; renderMain(); }
-      if (ev.key === "ArrowLeft" && stanzaIdx > 0) { state.openStanzaIdx = stanzaIdx - 1; state.highlightVerseIdx = null; renderMain(); }
+      if (ev.key === "ArrowRight" && stanzaIdx < section.stanzas.length - 1) { state.openStanzaIdx = stanzaIdx + 1; state.highlightVerseIdx = null; state.highlightWord = null; renderMain(); }
+      if (ev.key === "ArrowLeft" && stanzaIdx > 0) { state.openStanzaIdx = stanzaIdx - 1; state.highlightVerseIdx = null; state.highlightWord = null; renderMain(); }
     };
   }
 
@@ -615,8 +778,8 @@
       var badge = genreBadgeHtml(stanza);
       if (badge) html += badge;
       stanza.verses.forEach(function (verse, vi) {
-        html += '<div class="whole-verse-line" data-jump-stanza-verse="' + stanzaIdx + '"><span class="verse-num">' + (vi + 1) + '</span>' + escapeHtml(verse.text) + '</div>';
-        html += '<div class="translit-line">' + escapeHtml(translit(verse.text)) + '</div>';
+        html += '<div class="whole-verse-line script-original" data-jump-stanza-verse="' + stanzaIdx + '"><span class="verse-num">' + (vi + 1) + '</span>' + escapeHtml(verse.text) + '</div>';
+        html += '<div class="whole-verse-line script-translit" data-jump-stanza-verse="' + stanzaIdx + '"><span class="verse-num">' + (vi + 1) + '</span>' + escapeHtml(translit(verse.text)) + '</div>';
         if (verse.en) {
           html += '<div class="whole-verse-en">' + escapeHtml(verse.en) + '</div>';
         } else {
@@ -640,12 +803,82 @@
     el.resultsArea.querySelectorAll("[data-jump-stanza-verse]").forEach(function (line) {
       line.addEventListener("click", function () {
         state.openStanzaIdx = parseInt(line.getAttribute("data-jump-stanza-verse"), 10);
-        state.highlightVerseIdx = null;
+        state.highlightVerseIdx = null; state.highlightWord = null;
         state.wholeCanon = false;
         renderMain();
       });
     });
   }
+
+  // --- browser back/forward: move through the site's own views, not away
+  // from the site entirely. Each distinct "page" (a category list, a
+  // section reading at a given Sharagan, a whole-canon view, a search) gets
+  // its own history entry via the URL hash; switching between two pages of
+  // the same kind (e.g. paging Sharagan-to-Sharagan, or editing a search
+  // query) replaces the current entry instead of piling up one per click.
+  function computeHash() {
+    if (state.openSection !== null) {
+      return state.wholeCanon
+        ? "s=" + state.openSection + "&whole=1"
+        : "s=" + state.openSection + "&st=" + state.openStanzaIdx;
+    }
+    if (state.query.trim().length > 0) return "q=" + encodeURIComponent(state.query.trim());
+    if (state.category !== null) return "c=" + encodeURIComponent(state.category);
+    return "";
+  }
+  function hashKind(hash) {
+    if (hash.indexOf("s=") === 0) return "s";
+    if (hash.indexOf("q=") === 0) return "q";
+    if (hash.indexOf("c=") === 0) return "c";
+    return "";
+  }
+  function parseHashParams(hash) {
+    var out = {};
+    hash.split("&").forEach(function (pair) {
+      if (!pair) return;
+      var eq = pair.indexOf("=");
+      var key = eq === -1 ? pair : pair.slice(0, eq);
+      var value = eq === -1 ? "" : decodeURIComponent(pair.slice(eq + 1));
+      out[key] = value;
+    });
+    return out;
+  }
+  function applyHashState(hash) {
+    var params = parseHashParams(hash);
+    state.openSection = null;
+    state.category = null;
+    state.query = "";
+    state.wholeCanon = false;
+    state.openStanzaIdx = 0;
+    state.highlightVerseIdx = null; state.highlightWord = null;
+    if (params.s !== undefined) {
+      var sid = parseInt(params.s, 10);
+      state.openSection = (corpus && sid >= 0 && sid < corpus.length) ? sid : null;
+      if (params.whole === "1") state.wholeCanon = true;
+      else state.openStanzaIdx = parseInt(params.st || "0", 10) || 0;
+    } else if (params.q !== undefined) {
+      state.query = params.q;
+      if (el.searchInput) el.searchInput.value = state.query;
+    } else if (params.c !== undefined) {
+      state.category = params.c;
+    }
+  }
+  var suppressHistoryPush = false;
+  function syncHistory() {
+    if (suppressHistoryPush) return;
+    var hash = computeHash();
+    var current = location.hash.replace(/^#/, "");
+    if (hash === current) return;
+    var method = hashKind(hash) === hashKind(current) ? "replaceState" : "pushState";
+    history[method](null, "", hash ? "#" + hash : location.pathname + location.search);
+  }
+  window.addEventListener("popstate", function () {
+    suppressHistoryPush = true;
+    applyHashState(location.hash.replace(/^#/, ""));
+    renderFacets();
+    renderMain();
+    suppressHistoryPush = false;
+  });
 
   function renderMain() {
     updateSearchPanelVisibility();
@@ -660,6 +893,7 @@
       document.onkeydown = null;
       renderBrowseList();
     }
+    syncHistory();
   }
 
   var searchDebounce = null;
@@ -675,8 +909,11 @@
   // --- boot ---
   el.resultsArea.innerHTML = '<div class="empty-state">Loading the corpus&hellip;</div>';
   loadAll().then(function () {
+    suppressHistoryPush = true;
+    applyHashState(location.hash.replace(/^#/, ""));
     renderFacets();
     renderMain();
+    suppressHistoryPush = false;
   }).catch(function (err) {
     el.resultsArea.innerHTML = '<div class="empty-state">Could not load the corpus data. ('
       + escapeHtml(err && err.message ? err.message : String(err)) + ')</div>';

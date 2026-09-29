@@ -32,6 +32,27 @@
   font-display: swap;
 }
 
+/* Self-hosted (not Google Fonts CDN) so the page renders correctly with no
+   external network dependency - variable fonts, so one file each covers the
+   whole regular/medium/bold (and italic) weight range. OFL-licensed;
+   license text kept alongside in fonts/EBGaramond-OFL.txt. */
+@font-face {
+  font-family: "EB Garamond";
+  src: url("fonts/EBGaramond-Variable.woff2") format("woff2-variations"),
+       url("fonts/EBGaramond-Variable.woff2") format("woff2");
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "EB Garamond";
+  src: url("fonts/EBGaramond-Italic-Variable.woff2") format("woff2-variations"),
+       url("fonts/EBGaramond-Italic-Variable.woff2") format("woff2");
+  font-weight: 400 700;
+  font-style: italic;
+  font-display: swap;
+}
+
 :root {
   --paper: #f4ead2;
   --paper-deep: #fbf6e8;
@@ -319,15 +340,15 @@ body {
   margin: 4px 0;
 }
 
-.translit-line {
-  font-family: "EB Garamond", Georgia, serif;
-  font-size: 14px;
-  font-style: italic;
-  color: var(--muted);
-  margin: 2px 0 0;
-  display: none;
-}
-body.show-translit .translit-line { display: block; }
+/* The transliteration toggle swaps the script shown in place, rather than
+   adding a small caption line - the Latin transliteration is rendered with
+   the exact same class(es) as the Krapar text it replaces, so it always
+   matches its size/weight/color, just missing the Armenian-specific font
+   glyphs (which fall back to the surrounding serif stack automatically). */
+.script-translit { display: none; }
+body.show-translit .script-original { display: none; }
+body.show-translit .script-translit { display: block; }
+body.show-translit .result-loc.script-translit { display: inline-block; }
 
 .result-en {
   font-family: "EB Garamond", Georgia, serif;
@@ -367,8 +388,10 @@ body.show-translit .translit-line { display: block; }
 .category-tile:hover { border-color: var(--gold); box-shadow: 0 2px 10px var(--shadow); }
 
 .category-tile-name {
-  font-family: "GHEA Avandakan", "EB Garamond", Georgia, serif;
-  font-size: 19px;
+  font-family: "EB Garamond", Georgia, serif;
+  font-weight: 700;
+  font-style: italic;
+  font-size: 20px;
   color: var(--wine);
   margin-bottom: 6px;
 }
@@ -450,36 +473,37 @@ body.show-translit .translit-line { display: block; }
   font-variant: small-caps;
   font-weight: 700;
   letter-spacing: 0.1em;
-  font-size: 15px;
+  font-size: 19px;
   color: var(--gold);
   margin: 2px 0;
 }
-.heading-eyebrow .translit-line { text-align: center; font-size: 12px; }
 
 .reading-heading {
   font-family: "GHEA Avandakan", serif;
   color: var(--wine);
-  font-size: 24px;
+  font-size: 36px;
   text-align: center;
-  margin: 4px 0 2px;
+  margin: 6px 0 2px;
   line-height: 1.3;
-}
-.reading-heading .translit-line {
-  text-align: center;
-  font-size: 14px;
 }
 
 .reading-heading-sm {
   font-family: "GHEA Avandakan", serif;
   color: var(--wine);
-  font-size: 19px;
+  font-size: 27px;
   text-align: center;
   margin: 4px 0 2px;
   line-height: 1.3;
 }
-.reading-heading-sm .translit-line {
-  text-align: center;
-  font-size: 12px;
+
+/* GHEA Avandakan's own Latin glyphs (used above for the real Armenian
+   heading) don't suit transliterated English text - use the site's actual
+   English display face there instead, same size/color/weight. */
+.reading-heading.script-translit,
+.reading-heading-sm.script-translit {
+  font-family: "EB Garamond", Georgia, serif;
+  font-weight: 700;
+  font-style: italic;
 }
 
 .reading-category {
@@ -487,37 +511,72 @@ body.show-translit .translit-line { display: block; }
   font-family: "EB Garamond", Georgia, serif;
   font-variant: small-caps;
   letter-spacing: 0.05em;
-  font-size: 13px;
+  font-size: 17px;
   color: var(--muted);
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 
 .genre-badge {
   text-align: center;
   font-family: "EB Garamond", Georgia, serif;
-  font-size: 18px;
+  font-size: 21px;
   font-style: italic;
   color: var(--muted);
-  margin-bottom: 20px;
+  margin-bottom: 22px;
 }
-.genre-badge .genre-name { color: var(--wine); font-weight: 700; font-style: normal; }
+.genre-badge .genre-name {
+  font-family: "GHEA Mariam", serif;
+  color: var(--wine);
+  font-weight: 700;
+  font-style: normal;
+}
+
+.mode-badge {
+  text-align: center;
+  margin-bottom: 20px;
+  font-family: "EB Garamond", Georgia, serif;
+  font-size: 16px;
+  font-variant: small-caps;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+.mode-badge .mode-code {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 3px 12px;
+  border: 1px solid var(--gold);
+  border-radius: 999px;
+  color: var(--wine);
+  font-family: "GHEA Mariam", serif;
+  font-weight: 700;
+  font-variant: normal;
+  letter-spacing: 0.02em;
+  font-size: 18px;
+}
 
 .verse-progress {
   text-align: center;
   font-family: "EB Garamond", Georgia, serif;
-  font-size: 12px;
+  font-size: 15px;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--gold);
-  margin-bottom: 14px;
+  margin-bottom: 16px;
 }
 
 .sharagan-verse {
-  padding: 10px 0;
+  padding: 18px 0;
   margin-bottom: 8px;
   border-radius: 4px;
   transition: background 0.6s ease;
+}
+/* The gold star inside a verse marks the Krapar/English split within it;
+   this line marks the bigger boundary between one verse and the next, so
+   the two kinds of break stay visually distinct. */
+.sharagan-verse + .sharagan-verse {
+  border-top: 1px solid var(--paper-line);
+  margin-top: 4px;
 }
 .sharagan-verse.highlighted {
   background: var(--highlight-bg, rgba(198, 156, 74, 0.14));
@@ -534,27 +593,57 @@ body.show-translit .translit-line { display: block; }
   padding: 0 6px;
 }
 
+/* Not floated: this is centered, wrapped poetry, not a flowing paragraph -
+   a float lets the browser center the *rest* of the first line separately
+   from the capital, which opens a large gap between them whenever that
+   line is short. An inline raised cap always stays glued to the letter
+   after it, on every line length. */
 .verse-armenian .dropcap {
   font-family: "GHEA Avandakan", serif;
-  font-size: 1.9em;
+  font-size: 1.5em;
   color: var(--wine);
-  line-height: 0.7;
-  float: left;
-  padding: 0.08em 0 0 0;
-  margin-right: -0.08em;
+  vertical-align: -0.14em;
+  line-height: 1;
 }
 
 .verse-armenian .dropcap.dropcap-ornament {
-  margin-right: 0.1em;
+  font-size: 1.3em;
+  vertical-align: -0.08em;
+  margin-right: 0.12em;
 }
 
-.verse-translit {
-  text-align: center;
-  font-size: 16px;
-  margin: 6px 0 18px;
-  display: none;
+.verse-armenian.script-translit .dropcap {
+  font-family: "EB Garamond", Georgia, serif;
+  font-weight: 700;
+  vertical-align: -0.1em;
 }
-body.show-translit .verse-translit { display: block; }
+.verse-armenian.script-translit .dropcap.dropcap-ornament {
+  font-family: "GHEA Avandakan", serif;
+}
+
+/* Click an Armenian word to jump to a root/declension search for it. The
+   underline only shows on hover, so plain reading and text selection/copy
+   both stay undisturbed. */
+.word-link { cursor: pointer; }
+.word-link:hover {
+  text-decoration: underline dotted;
+  text-decoration-color: var(--gold);
+  text-underline-offset: 4px;
+}
+.word-match {
+  font-weight: 700;
+  color: var(--wine);
+}
+
+/* Phrase-link hover highlighting (toggle-gated): a hovered phrase and its
+   translated counterpart light up together. Wired unconditionally, but only
+   visible while body.phrase-link is set, so the toggle needs no re-wiring. */
+.phrase { cursor: default; }
+body.phrase-link .phrase-active {
+  background: rgba(198, 156, 74, 0.3);
+  border-radius: 2px;
+  box-shadow: 0 0 0 2px rgba(198, 156, 74, 0.3);
+}
 
 .verse-divider {
   text-align: center;
@@ -577,21 +666,18 @@ body.show-translit .verse-translit { display: block; }
 .verse-english .dropcap {
   font-family: "EB Garamond", Georgia, serif;
   font-weight: 700;
-  font-size: 1.9em;
+  font-size: 1.5em;
   color: var(--wine);
-  line-height: 0.72;
-  float: left;
-  padding: 0.03em 0 0 0;
-  margin-right: -0.02em;
+  vertical-align: -0.1em;
+  line-height: 1;
 }
 
 .verse-english .dropcap.dropcap-ornament {
   font-family: "GHEA Avandakan", serif;
   font-weight: 400;
-  font-size: 1.9em;
-  line-height: 0.7;
-  padding: 0.08em 0 0 0;
-  margin-right: -0.08em;
+  font-size: 1.3em;
+  vertical-align: -0.06em;
+  margin-right: 0.12em;
 }
 
 .verse-english.pending {
