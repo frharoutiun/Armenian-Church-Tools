@@ -612,7 +612,12 @@ body.show-translit .result-loc.script-translit { display: inline-block; }
   color: var(--wine);
   vertical-align: -0.14em;
   line-height: 1;
-  margin-right: 0.06em;
+  /* GHEA Avandakan's own letterforms lean/slant at this display size (it's
+     an italic-styled face even in its "regular" cut) - their top strokes
+     reach into the space right after the letter, so this needs noticeably
+     more room than an upright drop cap would to keep from visually
+     touching the very next (non-stylized) letter. */
+  margin-right: 0.18em;
 }
 
 .verse-armenian .dropcap.dropcap-ornament {
@@ -874,21 +879,51 @@ body.wide-reading .app { max-width: 1180px; }
   overflow-y: auto;
 }
 
-.scripture-entry-head { margin-bottom: 10px; }
-.scripture-entry-gloss {
-  font-family: "EB Garamond", Georgia, serif;
-  font-variant: small-caps;
-  letter-spacing: 0.08em;
-  font-size: 15px;
-  color: var(--gold);
-  font-weight: 700;
+/* A hymn can have several real connected passages - a small tab strip
+   switches between them, one at a time, so the panel never turns into an
+   unreadable wall of every passage stacked on top of each other. */
+.scripture-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--paper-line);
 }
+.scripture-tab {
+  font-family: "EB Garamond", Georgia, serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  background: none;
+  border: 1px solid var(--paper-line);
+  border-radius: 999px;
+  padding: 4px 11px;
+  cursor: pointer;
+}
+.scripture-tab:hover { border-color: var(--gold); color: var(--wine); }
+.scripture-tab.active {
+  background: var(--wine);
+  border-color: var(--wine);
+  color: var(--paper-deep);
+}
+
+.scripture-entry-head { margin-bottom: 10px; }
 .scripture-entry-citation {
   font-family: "EB Garamond", Georgia, serif;
-  font-style: italic;
-  font-size: 15px;
+  font-variant: small-caps;
+  letter-spacing: 0.06em;
+  font-size: 17px;
+  font-weight: 700;
   color: var(--wine);
-  margin-top: 2px;
+}
+.scripture-entry-note {
+  font-family: "EB Garamond", Georgia, serif;
+  font-style: italic;
+  font-size: 13.5px;
+  color: var(--muted);
+  margin-top: 3px;
+  line-height: 1.4;
 }
 
 .scripture-columns {

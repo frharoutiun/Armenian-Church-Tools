@@ -73,19 +73,26 @@
     });
   }
 
-  // --- scripture-reference toggle: off by default. When on, a hymn whose
-  // genre is one of the fixed canticles (Song of Moses, the Magnificat,
-  // certain psalms...) shows the connected Bible passage - Classical
-  // Armenian (Zohrab, via arak29.org) and the RSV - alongside the hymn
-  // itself. The data behind this is tiny and loaded lazily, only once the
-  // toggle is actually turned on. ---
+  // --- scripture-reference toggle: off by default. When on, a hymn shows
+  // the real Bible passage(s) its OWN text actually alludes to - found by
+  // reading the hymn itself, not a blanket "every hymn in this Ode-slot
+  // cites the same generic canticle" rule. Classical Armenian (Zohrab, via
+  // arak29.org) alongside the RSV. A hymn can have several real connected
+  // passages (a hymn is rarely built on just one allusion); when it does,
+  // a small tab strip lets you switch between them. This is currently
+  // authored only for section 0 (the one fully-translated sample section) -
+  // data/stanza-refs.json is keyed {sectionId: {stanzaIndex: [passage,...]}},
+  // and a stanza/section with no entry simply shows nothing. The data
+  // behind this is tiny and loaded lazily, only once the toggle is on. ---
   var scriptureToggle = document.getElementById("scriptureToggle");
   var SCRIPTURE_KEY = "sharaganScripture";
   var scriptureRefs = null;
   var scriptureRefsPromise = null;
+  var scriptureActiveTab = 0; // which passage tab is showing, reset per stanza
+  var lastScriptureStanzaKey = null; // "sectionId:stanzaIdx" - detects a genuine stanza change
   function loadScriptureRefs() {
     if (scriptureRefsPromise) return scriptureRefsPromise;
-    scriptureRefsPromise = fetch("data/scripture-refs.json")
+    scriptureRefsPromise = fetch("data/stanza-refs.json")
       .then(function (r) { return r.json(); })
       .then(function (data) { scriptureRefs = data; return data; })
       .catch(function () { scriptureRefs = {}; return scriptureRefs; });
@@ -111,22 +118,14 @@
     });
   }
 
-  // Every real (non-generic) genre this stanza carries that also has a
-  // connected-passage entry, in the stanza's own listed order, never
-  // duplicated. Returns [] until the data has actually finished loading.
-  function scriptureEntriesForStanza(stanza) {
-    if (!scriptureRefs || !stanza || !stanza.hymnTypes) return [];
-    var out = [];
-    var seen = {};
-    stanza.hymnTypes.forEach(function (g) {
-      if (seen[g]) return;
-      var entry = scriptureRefs[g];
-      if (!entry) return;
-      seen[g] = true;
-      var info = facets.genreInfo && facets.genreInfo[g];
-      out.push({ key: g, info: info, entry: entry });
-    });
-    return out;
+  // The real, content-based passage(s) this specific hymn (section+stanza)
+  // has been researched against - not a genre lookup. Returns [] until the
+  // data has finished loading, or for any section/stanza not yet authored.
+  function scripturePassagesForStanza(sectionId, stanzaIdx) {
+    if (!scriptureRefs) return [];
+    var forSection = scriptureRefs[String(sectionId)];
+    if (!forSection) return [];
+    return forSection[String(stanzaIdx)] || [];
   }
 
   // TR's own decodeChar has a real bug on shouting-case input: Armenian
@@ -323,12 +322,15 @@
   }
 
   function renderArmenianVerseHtml(rawText, phrasePairs, groupPrefix, highlightWord) {
+    // The ornament (when present) is its own small glyph up front - it has
+    // no letter value of its own, so it does NOT count as "the drop cap has
+    // already been applied": the real first letter that follows it still
+    // needs to get the actual stylized drop cap.
     var dropCapState = { applied: false };
     var html = "";
     var workText = rawText;
     if (rawText.charAt(0) === ORNAMENT) {
       html += '<span class="dropcap dropcap-ornament">' + ORNAMENT + "</span>";
-      dropCapState.applied = true;
       var restStart = 1;
       while (restStart < rawText.length && /\s/.test(rawText.charAt(restStart))) restStart++;
       workText = rawText.slice(restStart);
@@ -342,8 +344,13 @@
   }
 
   function renderEnglishVerseHtml(armenianText, englishText, phrasePairs, groupPrefix) {
-    var dropApplied = armenianText.charAt(0) === ORNAMENT;
-    var html = dropApplied ? '<span class="dropcap dropcap-ornament">' + ORNAMENT + "</span>" : "";
+    // As above: the ornament glyph (shown here only to visually pair with
+    // the Armenian side) never counts as "the drop cap is already used" -
+    // the real first letter of the English/transliterated text still gets
+    // its own stylized drop cap right after it.
+    var hasOrnament = armenianText.charAt(0) === ORNAMENT;
+    var dropApplied = false;
+    var html = hasOrnament ? '<span class="dropcap dropcap-ornament">' + ORNAMENT + "</span>" : "";
     function withDrop(text) {
       if (dropApplied || !text.length) return escapeHtml(text);
       var m = text.match(/^(\s*)([^\s])([\s\S]*)$/);
@@ -748,8 +755,11 @@
     });
   }
 
-  // --- scripture-reference panel: the connected Bible passage(s) for the
-  // Sharagan currently open, shown beside it when the toggle is on. ---
+  // --- scripture-reference panel: the real, content-based Bible passage(s)
+  // the Sharagan currently open actually alludes to, shown beside it when
+  // the toggle is on. A hymn can have several genuine connected passages;
+  // when it does, a small tab strip switches between them (one at a time
+  // shown, so the panel never turns into an unreadable wall of text). ---
   function scriptureVerseListHtml(list, scriptClass) {
     var html = "";
     (list || []).forEach(function (item) {
@@ -760,24 +770,37 @@
     return html;
   }
 
-  function scripturePanelHtml(entries) {
-    if (!entries.length) return "";
-    var html = '<aside class="scripture-panel" aria-label="Connected scripture passage">';
-    entries.forEach(function (e, idx) {
-      html += '<div class="scripture-entry"' + (idx > 0 ? ' style="margin-top:22px;border-top:1px solid var(--paper-line);padding-top:18px;"' : "") + '>';
-      html += '<div class="scripture-entry-head">';
-      html += '<div class="scripture-entry-gloss">' + escapeHtml((e.info && e.info.gloss) || (e.info && e.info.name) || "") + '</div>';
-      html += '<div class="scripture-entry-citation">' + escapeHtml(e.entry.citation) + '</div>';
+  // The passage list currently on screen, so the chapter-dialog button
+  // (which only ever needs "whichever tab is active right now") doesn't
+  // need its own separate lookup/keying scheme.
+  var currentScripturePassages = [];
+
+  function scripturePanelHtml(passages) {
+    if (!passages.length) return "";
+    currentScripturePassages = passages;
+    if (scriptureActiveTab >= passages.length) scriptureActiveTab = 0;
+    var active = passages[scriptureActiveTab];
+    var html = '<aside class="scripture-panel" aria-label="Connected scripture passages">';
+    if (passages.length > 1) {
+      html += '<div class="scripture-tabs" role="tablist" aria-label="Connected passages">';
+      passages.forEach(function (p, idx) {
+        html += '<button type="button" role="tab" aria-selected="' + (idx === scriptureActiveTab ? "true" : "false") + '" class="scripture-tab' + (idx === scriptureActiveTab ? " active" : "") + '" data-scripture-tab="' + idx + '">' + escapeHtml(p.ref) + '</button>';
+      });
       html += '</div>';
-      html += '<div class="scripture-columns">';
-      html += '<div class="scripture-column scripture-column-arm">' + scriptureVerseListHtml(e.entry.armenian, "scripture-arm") + '</div>';
-      html += '<div class="scripture-column scripture-column-en">' + scriptureVerseListHtml(e.entry.english, "scripture-en") + '</div>';
-      html += '</div>';
-      if (e.entry.chapterArmenian) {
-        html += '<button class="scripture-chapter-btn" data-scripture-chapter="' + escapeHtml(e.key) + '" type="button">View the whole chapter &rarr;</button>';
-      }
-      html += '</div>';
-    });
+    }
+    html += '<div class="scripture-entry">';
+    html += '<div class="scripture-entry-head">';
+    html += '<div class="scripture-entry-citation">' + escapeHtml(active.ref) + '</div>';
+    if (active.note) html += '<div class="scripture-entry-note">' + escapeHtml(active.note) + '</div>';
+    html += '</div>';
+    html += '<div class="scripture-columns">';
+    html += '<div class="scripture-column scripture-column-arm">' + scriptureVerseListHtml(active.armenian, "scripture-arm") + '</div>';
+    html += '<div class="scripture-column scripture-column-en">' + scriptureVerseListHtml(active.english, "scripture-en") + '</div>';
+    html += '</div>';
+    if (active.chapterArmenian) {
+      html += '<button class="scripture-chapter-btn" data-scripture-chapter="' + scriptureActiveTab + '" type="button">View the whole chapter &rarr;</button>';
+    }
+    html += '</div>';
     html += '</aside>';
     return html;
   }
@@ -798,16 +821,16 @@
     if (ev.key === "Escape") closeScriptureDialog();
   }
 
-  function openScriptureDialog(key, triggerEl) {
-    var entry = scriptureRefs && scriptureRefs[key];
+  function openScriptureDialog(tabIdx, triggerEl) {
+    var entry = currentScripturePassages[tabIdx];
     if (!entry || !entry.chapterArmenian) return;
     scriptureDialogReturnFocus = triggerEl || null;
     var overlay = document.createElement("div");
     overlay.id = "scriptureDialogOverlay";
     overlay.className = "scripture-dialog-overlay";
-    var html = '<div class="scripture-dialog" role="dialog" aria-modal="true" aria-label="' + escapeHtml(entry.chapterLabel || entry.citation) + '">';
+    var html = '<div class="scripture-dialog" role="dialog" aria-modal="true" aria-label="' + escapeHtml(entry.chapterLabel || entry.ref) + '">';
     html += '<div class="scripture-dialog-head">';
-    html += '<div class="scripture-dialog-title">' + escapeHtml(entry.chapterLabel || entry.citation) + '</div>';
+    html += '<div class="scripture-dialog-title">' + escapeHtml(entry.chapterLabel || entry.ref) + '</div>';
     html += '<button class="scripture-dialog-close" type="button" aria-label="Close">&times;</button>';
     html += '</div>';
     html += '<div class="scripture-dialog-body">';
@@ -828,10 +851,16 @@
     if (closeBtn && closeBtn.focus) closeBtn.focus();
   }
 
-  function wireScripturePanel(container) {
+  function wireScripturePanel(container, rerender) {
+    container.querySelectorAll("[data-scripture-tab]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        scriptureActiveTab = parseInt(btn.getAttribute("data-scripture-tab"), 10) || 0;
+        rerender();
+      });
+    });
     container.querySelectorAll("[data-scripture-chapter]").forEach(function (btn) {
       btn.addEventListener("click", function () {
-        openScriptureDialog(btn.getAttribute("data-scripture-chapter"), btn);
+        openScriptureDialog(parseInt(btn.getAttribute("data-scripture-chapter"), 10) || 0, btn);
       });
     });
   }
@@ -857,7 +886,12 @@
     html += renderSharaganNav(section, stanzaIdx);
 
     var scriptureOn = document.body.classList.contains("show-scripture");
-    var scriptureEntries = scriptureOn ? scriptureEntriesForStanza(stanza) : [];
+    var scriptureStanzaKey = section.id + ":" + stanzaIdx;
+    if (scriptureStanzaKey !== lastScriptureStanzaKey) {
+      scriptureActiveTab = 0;
+      lastScriptureStanzaKey = scriptureStanzaKey;
+    }
+    var scriptureEntries = scriptureOn ? scripturePassagesForStanza(section.id, stanzaIdx) : [];
     var hasScripture = scriptureEntries.length > 0;
     document.body.classList.toggle("wide-reading", hasScripture);
 
@@ -910,7 +944,7 @@
     wireSharaganNav(el.resultsArea);
     wireWordLinks(el.resultsArea);
     wirePhraseHover(el.resultsArea);
-    if (hasScripture) wireScripturePanel(el.resultsArea);
+    if (hasScripture) wireScripturePanel(el.resultsArea, function () { renderMain(); });
 
     if (highlightIdx !== null) {
       var target = document.getElementById("highlighted-verse");
