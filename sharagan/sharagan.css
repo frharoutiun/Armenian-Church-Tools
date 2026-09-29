@@ -60,6 +60,7 @@
   --ink: #2a1c12;
   --muted: #7a6a51;
   --wine: #742331;
+  --wine-rgb: 116, 35, 49;
   --wine-deep: #4f1620;
   --gold: #a3792f;
   --gold-bright: #c9971f;
@@ -74,6 +75,7 @@
   --ink: #ecdfc4;
   --muted: #b6a583;
   --wine: #c96a7a;
+  --wine-rgb: 201, 106, 122;
   --wine-deep: #e0899a;
   --gold: #d9b45a;
   --gold-bright: #f0cd7a;
@@ -680,16 +682,21 @@ body.phrase-link .phrase-active {
 .verse-english .dropcap {
   font-family: "EB Garamond", Georgia, serif;
   font-weight: 700;
+  font-style: italic;
   font-size: 1.5em;
   color: var(--wine);
   vertical-align: -0.1em;
   line-height: 1;
-  margin-right: 0.05em;
+  /* Italic to echo the Armenian drop cap's slant; same reasoning as that
+     one applies here too - the slanted stroke needs more room than an
+     upright cap so it doesn't visually run into the next letter. */
+  margin-right: 0.15em;
 }
 
 .verse-english .dropcap.dropcap-ornament {
   font-family: "GHEA Avandakan", serif;
   font-weight: 400;
+  font-style: normal;
   font-size: 1.3em;
   vertical-align: -0.06em;
   margin-right: 0.12em;
@@ -916,12 +923,12 @@ body.wide-reading .app { max-width: 1180px; }
    at a glance which words the panel's current reference is about. */
 .scripture-hymn-link {
   cursor: pointer;
-  border-bottom: 1px dotted var(--gold);
+  border-bottom: 1px dotted var(--wine);
 }
-.scripture-hymn-link:hover { background: rgba(198, 156, 74, 0.16); }
+.scripture-hymn-link:hover { background: rgba(var(--wine-rgb), 0.14); }
 .scripture-hymn-link.active {
-  background: rgba(198, 156, 74, 0.32);
-  border-bottom: 1px solid var(--gold-bright);
+  background: rgba(var(--wine-rgb), 0.22);
+  border-bottom: 1px solid var(--wine);
   border-radius: 2px;
   padding: 0 1px;
 }
