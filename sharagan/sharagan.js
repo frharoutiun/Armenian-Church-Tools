@@ -116,6 +116,7 @@
     openStanzaIdx: 0,
     highlightVerseIdx: null, // local index within the open stanza, from a search jump
     highlightWord: null, // the specific matched surface form, bolded within that verse
+    lastResultKey: null, // "sectionId:verseIdx" of the result last opened, so going back marks it
     wholeCanon: false,
   };
 
@@ -510,7 +511,9 @@
 
   function renderResultItem(section, verse, verseIdx, matchedWord) {
     var heading = compactHeading(section.heading);
-    var html = '<div class="result-item" data-jump-section="' + section.id + '" data-jump-verse="' + verseIdx
+    var key = section.id + ":" + verseIdx;
+    var openedCls = state.lastResultKey === key ? " opened" : "";
+    var html = '<div class="result-item' + openedCls + '" data-jump-section="' + section.id + '" data-jump-verse="' + verseIdx
       + '" data-jump-word="' + escapeHtml(matchedWord || "") + '">';
     html += '<div class="result-loc script-original">' + escapeHtml(heading) + '</div>';
     html += '<div class="result-loc script-translit">' + escapeHtml(translit(heading)) + '</div>';
@@ -559,6 +562,11 @@
         var sectionId = parseInt(item.getAttribute("data-jump-section"), 10);
         var globalVerseIdx = parseInt(item.getAttribute("data-jump-verse"), 10);
         var loc = locateStanza(corpus[sectionId], globalVerseIdx);
+        // Mark which result this was against the search-results page itself
+        // (still the current history entry) before navigating away from it,
+        // so going back shows exactly that page again, with this one marked.
+        state.lastResultKey = sectionId + ":" + globalVerseIdx;
+        syncHistory();
         state.query = "";
         el.searchInput.value = "";
         state.openSection = sectionId;
@@ -818,11 +826,17 @@
   // query) replaces the current entry instead of piling up one per click.
   function computeHash() {
     if (state.openSection !== null) {
-      return state.wholeCanon
-        ? "s=" + state.openSection + "&whole=1"
-        : "s=" + state.openSection + "&st=" + state.openStanzaIdx;
+      if (state.wholeCanon) return "s=" + state.openSection + "&whole=1";
+      var hash = "s=" + state.openSection + "&st=" + state.openStanzaIdx;
+      if (state.highlightVerseIdx !== null) hash += "&hv=" + state.highlightVerseIdx;
+      if (state.highlightWord) hash += "&hw=" + encodeURIComponent(state.highlightWord);
+      return hash;
     }
-    if (state.query.trim().length > 0) return "q=" + encodeURIComponent(state.query.trim());
+    if (state.query.trim().length > 0) {
+      var qhash = "q=" + encodeURIComponent(state.query.trim());
+      if (state.lastResultKey) qhash += "&r=" + encodeURIComponent(state.lastResultKey);
+      return qhash;
+    }
     if (state.category !== null) return "c=" + encodeURIComponent(state.category);
     return "";
   }
@@ -851,14 +865,18 @@
     state.wholeCanon = false;
     state.openStanzaIdx = 0;
     state.highlightVerseIdx = null; state.highlightWord = null;
+    state.lastResultKey = null;
     if (params.s !== undefined) {
       var sid = parseInt(params.s, 10);
       state.openSection = (corpus && sid >= 0 && sid < corpus.length) ? sid : null;
       if (params.whole === "1") state.wholeCanon = true;
       else state.openStanzaIdx = parseInt(params.st || "0", 10) || 0;
+      if (params.hv !== undefined) state.highlightVerseIdx = parseInt(params.hv, 10);
+      if (params.hw !== undefined) state.highlightWord = params.hw;
     } else if (params.q !== undefined) {
       state.query = params.q;
       if (el.searchInput) el.searchInput.value = state.query;
+      if (params.r !== undefined) state.lastResultKey = params.r;
     } else if (params.c !== undefined) {
       state.category = params.c;
     }
@@ -901,6 +919,7 @@
     el.searchInput.addEventListener("input", function () {
       state.query = el.searchInput.value;
       state.openSection = null;
+      state.lastResultKey = null;
       clearTimeout(searchDebounce);
       searchDebounce = setTimeout(function () { renderFacets(); renderMain(); }, 120);
     });

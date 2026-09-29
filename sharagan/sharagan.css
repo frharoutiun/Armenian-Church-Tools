@@ -319,6 +319,14 @@ body {
 }
 .result-item:hover, .section-item:hover { border-color: var(--gold); }
 
+/* Marks the result you last opened, so coming back via the browser's back
+   button shows exactly this page again, with that one still indicated. */
+.result-item.opened {
+  border-color: var(--gold);
+  border-width: 2px;
+  box-shadow: 0 0 0 1px var(--gold);
+}
+
 .result-loc, .section-cat {
   font-family: "EB Garamond", Georgia, serif;
   font-size: 12px;
@@ -604,6 +612,7 @@ body.show-translit .result-loc.script-translit { display: inline-block; }
   color: var(--wine);
   vertical-align: -0.14em;
   line-height: 1;
+  margin-right: 0.06em;
 }
 
 .verse-armenian .dropcap.dropcap-ornament {
@@ -670,6 +679,7 @@ body.phrase-link .phrase-active {
   color: var(--wine);
   vertical-align: -0.1em;
   line-height: 1;
+  margin-right: 0.05em;
 }
 
 .verse-english .dropcap.dropcap-ornament {
