@@ -84,7 +84,7 @@
 }
 
 * { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; }
+html, body { margin: 0; padding: 0; overflow-x: hidden; }
 
 body {
   background: var(--paper);
@@ -131,11 +131,21 @@ body {
   color: var(--wine);
   margin: 0;
   line-height: 1.15;
+  /* The "In development" badge sits right after the title text - on a
+     narrow phone the two together can run past the viewport edge instead
+     of wrapping, since inline content doesn't break between an element and
+     the text before it the way separate block content would. Flex lets the
+     badge drop to its own line instead. */
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: center;
+  gap: 6px 10px;
+  max-width: 100%;
 }
 
 .badge-dev {
   display: inline-block;
-  margin-left: 12px;
   padding: 3px 10px;
   font-family: "EB Garamond", Georgia, serif;
   font-size: 12px;
@@ -348,6 +358,7 @@ body {
   font-size: 19px;
   line-height: 1.55;
   margin: 4px 0;
+  overflow-wrap: break-word;
 }
 
 /* The transliteration toggle swaps the script shown in place, rather than
@@ -486,6 +497,7 @@ body.show-translit .result-loc.script-translit { display: inline-block; }
   font-size: 19px;
   color: var(--gold);
   margin: 2px 0;
+  overflow-wrap: break-word;
 }
 
 .reading-heading {
@@ -495,6 +507,7 @@ body.show-translit .result-loc.script-translit { display: inline-block; }
   text-align: center;
   margin: 6px 0 2px;
   line-height: 1.3;
+  overflow-wrap: break-word;
 }
 
 .reading-heading-sm {
@@ -504,6 +517,7 @@ body.show-translit .result-loc.script-translit { display: inline-block; }
   text-align: center;
   margin: 4px 0 2px;
   line-height: 1.3;
+  overflow-wrap: break-word;
 }
 
 /* GHEA Avandakan's own Latin glyphs (used above for the real Armenian
@@ -694,7 +708,12 @@ body.phrase-link .phrase-active {
 }
 
 .verse-english .dropcap.dropcap-ornament {
-  font-family: "GHEA Avandakan", serif;
+  /* The ornament mark itself ("֍"), not English text - but GHEA Avandakan
+     is still an Armenian display face, so use the site's other Armenian
+     face (Mariam, the body-text one) instead, for a plainer/quieter glyph
+     that doesn't look like Armenian display calligraphy sitting inside an
+     English paragraph. */
+  font-family: "GHEA Mariam", serif;
   font-weight: 400;
   font-style: normal;
   font-size: 1.3em;
@@ -848,6 +867,8 @@ body.phrase-link .phrase-active {
 
 @media (max-width: 640px) {
   .hymnal-title { font-size: 32px; }
+  .reading-heading { font-size: 27px; }
+  .reading-heading-sm { font-size: 21px; }
   .verse-armenian { font-size: 21px; }
   .verse-english { font-size: 17px; }
   .reading-card { padding: 20px 16px 18px; }
@@ -876,14 +897,15 @@ body.wide-reading .app { max-width: 1180px; }
 .reading-hymn-col { min-width: 0; }
 
 .scripture-panel {
+  /* Deliberately NOT position:sticky - a panel pinned to the viewport while
+     the hymn text scrolls underneath it reads as a floating box chasing the
+     reader, rather than a settled part of the page. It sits in its normal
+     place in the two-column grid instead, and simply re-renders in place
+     when the active stanza/passage changes. */
   background: var(--paper);
   border: 1px solid var(--paper-line);
   border-radius: 6px;
   padding: 18px 20px;
-  position: sticky;
-  top: 16px;
-  max-height: calc(100vh - 32px);
-  overflow-y: auto;
 }
 
 /* A hymn can have several real connected passages - a small tab strip
@@ -960,6 +982,17 @@ body.wide-reading .app { max-width: 1180px; }
 .scripture-verse {
   margin: 0 0 8px;
   line-height: 1.5;
+  border-radius: 3px;
+  padding: 2px 4px;
+  margin-left: -4px;
+}
+/* Inside the "whole chapter" dialog, the verse(s) actually excerpted in
+   the side panel (the reason this passage is connected at all) get a
+   lasting highlight and a scroll-into-view on open, so opening the full
+   chapter doesn't lose track of which verse it was about. */
+.scripture-verse-highlighted {
+  background: rgba(var(--wine-rgb), 0.16);
+  box-shadow: inset 0 0 0 1px rgba(var(--wine-rgb), 0.4);
 }
 .scripture-verse-num {
   font-family: "EB Garamond", Georgia, serif;
@@ -1026,7 +1059,11 @@ body.wide-reading .app { max-width: 1180px; }
   border-bottom: 1px solid var(--paper-line);
 }
 .scripture-dialog-title {
-  font-family: "GHEA Avandakan", serif;
+  /* Always English ("John 3 (complete)") - GHEA Avandakan is an Armenian
+     display face and its fallback Latin glyphs don't suit English text. */
+  font-family: "EB Garamond", Georgia, serif;
+  font-weight: 700;
+  font-style: italic;
   color: var(--wine);
   font-size: 22px;
 }
@@ -1052,10 +1089,6 @@ body.wide-reading .app { max-width: 1180px; }
 @media (max-width: 900px) {
   body.wide-reading .app { max-width: 880px; }
   .reading-body-grid { grid-template-columns: 1fr; }
-  .scripture-panel {
-    position: static;
-    max-height: none;
-  }
 }
 
 @media (max-width: 640px) {

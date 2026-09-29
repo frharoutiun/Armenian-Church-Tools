@@ -1,6 +1,15 @@
 (function () {
   "use strict";
 
+  // --- touch/no-hover device detection, for the phrase-link/word-link tap
+  // behavior below (there's no hover to reveal connections with on a
+  // touchscreen, so tapping has to do double duty: first tap previews,
+  // a fast second tap on the same target navigates). ---
+  var isTouchLikeDevice = (function () {
+    try { return window.matchMedia && window.matchMedia("(hover: none), (pointer: coarse)").matches; }
+    catch (e) { return false; }
+  })();
+
   // --- theme ---
   var THEME_KEY = "sharaganTheme";
   var themeSelect = document.getElementById("themeSelect");
@@ -451,6 +460,30 @@
     return html;
   }
 
+  // On a touchscreen there's no hover to reveal a phrase-link connection
+  // with, so a tap has to stand in for it - but a bare tap is also how you
+  // jump to the word search below. Resolved the same way a map app resolves
+  // "tap a pin" vs "tap it again": the first tap on a connected word/phrase
+  // just previews the connection (lights up its group, same as hover would);
+  // a second tap on that same group within DOUBLE_TAP_MS counts as a
+  // deliberate double-tap and falls through to whatever the first tap would
+  // have done on a device with real hover. Words with no phrase-group at all
+  // have nothing to preview, so they still jump straight to search on one
+  // tap, same as before - only connected words gain the extra step.
+  var DOUBLE_TAP_MS = 450;
+  var lastTapGroupKey = null;
+  var lastTapGroupTime = 0;
+
+  function setActivePhraseGroup(container, group) {
+    container.querySelectorAll(".phrase.phrase-active").forEach(function (s) {
+      s.classList.remove("phrase-active");
+    });
+    if (!group) return;
+    container.querySelectorAll('.phrase[data-phrase-group="' + group + '"]').forEach(function (s) {
+      s.classList.add("phrase-active");
+    });
+  }
+
   // Click a word -> jump to the root-word search for it (every declined
   // form of that word's dictionary root, corpus-wide) - like arak29. A
   // click that follows a text-drag (the user was selecting/copying, not
@@ -460,6 +493,20 @@
       span.addEventListener("click", function () {
         var sel = window.getSelection();
         if (sel && String(sel).length > 0) return;
+
+        if (isTouchLikeDevice) {
+          var phraseAncestor = span.closest(".phrase[data-phrase-group]");
+          if (phraseAncestor) {
+            var group = phraseAncestor.getAttribute("data-phrase-group");
+            var now = Date.now();
+            var isDoubleTap = lastTapGroupKey === group && (now - lastTapGroupTime) < DOUBLE_TAP_MS;
+            lastTapGroupKey = group;
+            lastTapGroupTime = now;
+            setActivePhraseGroup(container, group);
+            if (!isDoubleTap) return;
+          }
+        }
+
         var word = span.getAttribute("data-word");
         state.openSection = null;
         state.query = word;
@@ -473,7 +520,10 @@
 
   // Hovering any phrase span highlights every span sharing its group (its
   // Armenian half and its English half together), only while the
-  // phrase-link toggle is on (guarded in CSS by body.phrase-link).
+  // phrase-link toggle is on (guarded in CSS by body.phrase-link). On a
+  // touch-like device, a tap does the same thing (see wireWordLinks above
+  // for the Armenian/word-link side of this - this covers phrase spans with
+  // no word-link inside them, e.g. the English half of the connection).
   function wirePhraseHover(container) {
     container.querySelectorAll(".phrase[data-phrase-group]").forEach(function (span) {
       var group = span.getAttribute("data-phrase-group");
@@ -484,6 +534,14 @@
       span.addEventListener("mouseleave", function () {
         siblings.forEach(function (s) { s.classList.remove("phrase-active"); });
       });
+      if (isTouchLikeDevice) {
+        span.addEventListener("click", function (ev) {
+          if (ev.target.closest(".word-link[data-word]")) return; // handled above
+          var sel = window.getSelection();
+          if (sel && String(sel).length > 0) return;
+          setActivePhraseGroup(container, group);
+        });
+      }
     });
   }
 
@@ -845,10 +903,12 @@
   // the toggle is on. A hymn can have several genuine connected passages;
   // when it does, a small tab strip switches between them (one at a time
   // shown, so the panel never turns into an unreadable wall of text). ---
-  function scriptureVerseListHtml(list, scriptClass) {
+  function scriptureVerseListHtml(list, scriptClass, highlightVerses) {
     var html = "";
     (list || []).forEach(function (item) {
-      html += '<p class="scripture-verse ' + scriptClass + '">';
+      var isHighlighted = Boolean(highlightVerses && item.v && highlightVerses.indexOf(item.v) !== -1);
+      html += '<p class="scripture-verse ' + scriptClass + (isHighlighted ? " scripture-verse-highlighted" : "") + '"'
+        + (isHighlighted ? ' data-scripture-highlighted="1"' : "") + '>';
       if (item.v) html += '<span class="scripture-verse-num">' + item.v + '</span>';
       html += escapeHtml(item.t) + "</p>";
     });
@@ -906,6 +966,15 @@
     if (ev.key === "Escape") closeScriptureDialog();
   }
 
+  // The excerpt already shown in the side panel (entry.armenian/english)
+  // carries the real chapter verse number(s) it was drawn from - the two
+  // sides can even differ (Armenian and English verse divisions don't
+  // always match up exactly) - so each column highlights against its own
+  // list rather than assuming they're the same numbers.
+  function verseNumbersOf(list) {
+    return (list || []).map(function (item) { return item.v; }).filter(Boolean);
+  }
+
   function openScriptureDialog(tabIdx, triggerEl) {
     var entry = currentScripturePassages[tabIdx];
     if (!entry || !entry.chapterArmenian) return;
@@ -920,8 +989,8 @@
     html += '</div>';
     html += '<div class="scripture-dialog-body">';
     html += '<div class="scripture-columns">';
-    html += '<div class="scripture-column scripture-column-arm">' + scriptureVerseListHtml(entry.chapterArmenian, "scripture-arm") + '</div>';
-    html += '<div class="scripture-column scripture-column-en">' + scriptureVerseListHtml(entry.chapterEnglish, "scripture-en") + '</div>';
+    html += '<div class="scripture-column scripture-column-arm">' + scriptureVerseListHtml(entry.chapterArmenian, "scripture-arm", verseNumbersOf(entry.armenian)) + '</div>';
+    html += '<div class="scripture-column scripture-column-en">' + scriptureVerseListHtml(entry.chapterEnglish, "scripture-en", verseNumbersOf(entry.english)) + '</div>';
     html += '</div>';
     html += '</div>';
     html += '</div>';
@@ -934,6 +1003,10 @@
     document.addEventListener("keydown", scriptureDialogKeydown, true);
     var closeBtn = overlay.querySelector(".scripture-dialog-close");
     if (closeBtn && closeBtn.focus) closeBtn.focus();
+    var firstHighlighted = overlay.querySelector("[data-scripture-highlighted]");
+    if (firstHighlighted && firstHighlighted.scrollIntoView) {
+      firstHighlighted.scrollIntoView({ block: "center" });
+    }
   }
 
   function wireScripturePanel(container, rerender) {
