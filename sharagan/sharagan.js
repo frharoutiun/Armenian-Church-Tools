@@ -55,8 +55,35 @@
     });
   }
 
+  // TR's own decodeChar has a real bug on shouting-case input: Armenian
+  // upper/lowercase are distinct codepoints, and several letters map to a
+  // two-letter Latin unit (Ձ->"Dz", Ղ->"Gh"...) - decodeChar capitalizes
+  // each Latin letter of that unit independently when fed genuine ALL-CAPS
+  // Armenian, since ordinary prose never has two consecutive capitals to
+  // trigger it. TR itself is never exposed to this, since nobody types
+  // ALL-CAPS Armenian into it - our corpus's own structural headers/type
+  // labels are the one place it comes up. Same workaround as feeding TR by
+  // hand: lowercase the Armenian first, transliterate, then uppercase the
+  // Latin result.
+  var ORNAMENT = "֍";
+
+  function isShoutingArmenian(s) {
+    var letters = s.replace(/[^Ա-և]/g, "");
+    return Boolean(letters) && letters === letters.toUpperCase() && letters !== letters.toLowerCase();
+  }
   function translit(armenianText) {
-    try { return window.decodeChar(armenianText); } catch (e) { return armenianText; }
+    // The ornament mark has no phonetic value - decodeChar just passes it
+    // through untranslated, which shows up as a stray glyph in the
+    // transliteration line. Drop it (and any space right after it) first.
+    var s = armenianText.trim().charAt(0) === ORNAMENT
+      ? armenianText.trim().slice(1).replace(/^\s+/, "")
+      : armenianText;
+    try {
+      if (isShoutingArmenian(s)) {
+        return window.decodeChar(s.toLowerCase()).toUpperCase();
+      }
+      return window.decodeChar(s);
+    } catch (e) { return s; }
   }
 
   // --- data ---
@@ -68,7 +95,8 @@
     hymnType: null,
     mode: null,
     openSection: null,
-    openVerseIdx: 0,
+    openStanzaIdx: 0,
+    highlightVerseIdx: null, // local index within the open stanza, from a search jump
     wholeCanon: false,
   };
 
@@ -101,15 +129,61 @@
     return String(s)
       .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
-  function firstLine(heading) { return heading.split("\n")[0]; }
-  function headingLines(heading) { return heading.split("\n"); }
+  // Headings are stored as one string with " / " marking real logical
+  // breaks (a leading generic label like "ԿԱՆՈՆ", the feast name, an
+  // optional "from X and Y" qualifier) - never a literal newline. Splitting
+  // on "\n" (the original, wrong assumption) never did anything; every
+  // heading rendered as one run-on line with a stray "/" character in it.
+  function headingParts(heading) {
+    return heading.split(" / ").map(function (s) { return s.trim(); }).filter(Boolean);
+  }
+  function firstLine(heading) { return headingParts(heading)[0] || heading; }
+
+  // A single-line summary for compact contexts (result cards, the browse
+  // list) - skips the generic leading label (Ganon/Sharakan/Erg/...) when
+  // there's real descriptive text after it, so the feast name itself leads.
+  function compactHeading(heading) {
+    var parts = headingParts(heading);
+    var shown = parts.length > 1 ? parts.slice(1) : parts;
+    return shown.join(", ");
+  }
+
+  // Renders a heading as a small gold eyebrow (the generic leading label,
+  // when there's more than one real part) followed by the substantive
+  // part(s) at full size - instead of one run-on line with slashes in it.
+  function renderHeadingBlock(heading, mainClass) {
+    var parts = headingParts(heading);
+    var html = "";
+    var rest = parts;
+    if (parts.length > 1) {
+      html += '<div class="heading-eyebrow">' + escapeHtml(parts[0]) + '<div class="translit-line">' + escapeHtml(translit(parts[0])) + '</div></div>';
+      rest = parts.slice(1);
+    }
+    rest.forEach(function (line) {
+      html += '<div class="' + mainClass + '">' + escapeHtml(line) + '<div class="translit-line">' + escapeHtml(translit(line)) + '</div></div>';
+    });
+    return html;
+  }
 
   // Wraps the first Armenian/Latin letter of a string in a drop-cap span.
   function withDropCap(text) {
     var s = escapeHtml(text);
     var m = s.match(/^([^\s])/);
     if (!m) return s;
-    return '<span class="dropcap">' + m[1] + "</span>" + s.slice(1);
+    var cls = m[1] === ORNAMENT ? "dropcap dropcap-ornament" : "dropcap";
+    return '<span class="' + cls + '">' + m[1] + "</span>" + s.slice(1);
+  }
+
+  // When the Armenian verse itself opens with the ornament mark, the
+  // English translation of that same verse gets the same ornament as its
+  // drop cap too, instead of an unrelated plain letter - the two should
+  // visibly mark the same special verse together.
+  function withMatchingDropCap(armenianText, englishText) {
+    var startsWithOrnament = armenianText.trim().charAt(0) === ORNAMENT;
+    if (startsWithOrnament) {
+      return '<span class="dropcap dropcap-ornament">' + ORNAMENT + "</span>" + escapeHtml(englishText);
+    }
+    return withDropCap(englishText);
   }
 
   function loadAll() {
@@ -153,10 +227,18 @@
     return html;
   }
 
+  // The category facet is surfaced as the big table-of-contents tiles in
+  // the results area, not as a chip row - so the chip row here only ever
+  // narrows further (hymn type / mode), and only once that narrowing is
+  // actually relevant: inside a chosen category, or while searching.
+  function facetsRelevant() {
+    return state.category !== null || state.query.trim().length > 0;
+  }
+
   function renderFacets() {
     if (!facets) return;
+    if (!facetsRelevant()) { el.facetRow.innerHTML = ""; return; }
     var html = "";
-    html += renderFacetGroup("Feast / commemoration category", facets.categories, "category", expandedGroups.category);
     html += renderFacetGroup("Hymn type (Sharakan genre)", facets.hymnTypes, "hymnType", expandedGroups.hymnType);
     html += renderFacetGroup("Mode", facets.modes, "mode", expandedGroups.mode);
     el.facetRow.innerHTML = html;
@@ -198,6 +280,28 @@
       });
     });
     return out;
+  }
+
+  // A Sharagan (an individual hymn) is one stanza - a whole group of verses
+  // sharing one genre/mode, meant to be read together - not a single verse.
+  // Converts a flat, section-wide verse index (as search results carry) into
+  // {stanzaIdx, localVerseIdx} so a search hit opens the right Sharagan with
+  // the actual matched verse highlighted within it.
+  function locateStanza(section, globalVerseIdx) {
+    var remaining = globalVerseIdx;
+    for (var si = 0; si < section.stanzas.length; si++) {
+      var count = section.stanzas[si].verses.length;
+      if (remaining < count) return { stanzaIdx: si, localVerseIdx: remaining };
+      remaining -= count;
+    }
+    return { stanzaIdx: 0, localVerseIdx: 0 };
+  }
+
+  function stanzaLabel(stanza, idx) {
+    var g = (stanza.hymnTypes || [])[0];
+    var info = g && facets.genreInfo && facets.genreInfo[g];
+    var name = info ? info.name : (stanza.type || null);
+    return (idx + 1) + ". " + (name || "Sharagan");
   }
 
   function searchArmenian(query) {
@@ -252,8 +356,8 @@
 
   function renderResultItem(section, verse, verseIdx) {
     var html = '<div class="result-item" data-jump-section="' + section.id + '" data-jump-verse="' + verseIdx + '">';
-    html += '<div class="result-loc">' + escapeHtml(firstLine(section.heading)) + '</div><br>';
-    html += '<div class="translit-line" style="display:inline-block;margin-bottom:6px;">' + escapeHtml(translit(firstLine(section.heading))) + '</div>';
+    html += '<div class="result-loc">' + escapeHtml(compactHeading(section.heading)) + '</div><br>';
+    html += '<div class="translit-line" style="display:inline-block;margin-bottom:6px;">' + escapeHtml(translit(compactHeading(section.heading))) + '</div>';
     html += '<div class="result-text">' + escapeHtml(verse.text) + '</div>';
     html += '<div class="translit-line">' + escapeHtml(translit(verse.text)) + '</div>';
     if (verse.en) html += '<div class="result-en">' + escapeHtml(verse.en) + '</div>';
@@ -296,10 +400,14 @@
     el.resultsArea.innerHTML = html;
     el.resultsArea.querySelectorAll("[data-jump-section]").forEach(function (item) {
       item.addEventListener("click", function () {
+        var sectionId = parseInt(item.getAttribute("data-jump-section"), 10);
+        var globalVerseIdx = parseInt(item.getAttribute("data-jump-verse"), 10);
+        var loc = locateStanza(corpus[sectionId], globalVerseIdx);
         state.query = "";
         el.searchInput.value = "";
-        state.openSection = parseInt(item.getAttribute("data-jump-section"), 10);
-        state.openVerseIdx = parseInt(item.getAttribute("data-jump-verse"), 10);
+        state.openSection = sectionId;
+        state.openStanzaIdx = loc.stanzaIdx;
+        state.highlightVerseIdx = loc.localVerseIdx;
         state.wholeCanon = false;
         renderMain();
         window.scrollTo({ top: 0, behavior: "smooth" });
@@ -311,25 +419,66 @@
   function renderSectionSummary(section) {
     var html = '<div class="section-item" data-section="' + section.id + '">';
     html += '<div class="section-cat">' + escapeHtml(section.category) + '</div><br>';
-    html += '<div class="section-heading" style="font-size:19px;">' + escapeHtml(firstLine(section.heading)) + '</div>';
-    html += '<div class="translit-line">' + escapeHtml(translit(firstLine(section.heading))) + '</div>';
+    html += '<div class="section-heading" style="font-size:19px;">' + escapeHtml(compactHeading(section.heading)) + '</div>';
+    html += '<div class="translit-line">' + escapeHtml(translit(compactHeading(section.heading))) + '</div>';
     html += '</div>';
     return html;
   }
 
+  // The landing page of the hymnal: a table-of-contents of the feast/
+  // commemoration categories (in real liturgical order, see CATEGORY_ORDER
+  // in the build script), not all 116 canons dumped in one long list. This
+  // is the "macro organization" layer above the individual Ganon list.
+  function renderCategoryTiles() {
+    var html = '<div class="results-summary">Choose a feast or commemoration to browse its hymns, or search the corpus above.</div>';
+    html += '<div class="category-tile-grid">';
+    (facets.categories || []).forEach(function (pair) {
+      var name = pair[0], count = pair[1];
+      html += '<div class="category-tile" data-category="' + escapeHtml(name) + '">'
+        + '<div class="category-tile-name">' + escapeHtml(name) + '</div>'
+        + '<div class="category-tile-count">' + count + (count === 1 ? " canon" : " canons") + '</div>'
+        + '</div>';
+    });
+    html += '</div>';
+    el.resultsArea.innerHTML = html;
+    el.resultsArea.querySelectorAll(".category-tile[data-category]").forEach(function (tile) {
+      tile.addEventListener("click", function () {
+        state.category = tile.getAttribute("data-category");
+        renderFacets();
+        renderMain();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      });
+    });
+  }
+
   function renderBrowseList() {
+    if (state.category === null) { renderCategoryTiles(); return; }
+
     var visible = corpus.filter(sectionPassesFacets);
-    var html = '<div class="results-summary">' + visible.length + ' of ' + corpus.length + ' sections shown. Click one to begin reading.</div>';
+    var html = '<div class="category-breadcrumb"><button data-all-categories="1">&larr; All categories</button>'
+      + ' <span class="category-breadcrumb-current">' + escapeHtml(state.category) + '</span></div>';
+    html += '<div class="results-summary">' + visible.length + ' of ' + corpus.length + ' sections shown. Click one to begin reading.</div>';
     if (visible.length === 0) {
       html += '<div class="empty-state">No sections match the selected filters.</div>';
     } else {
       visible.forEach(function (section) { html += renderSectionSummary(section); });
     }
     el.resultsArea.innerHTML = html;
+    el.resultsArea.querySelectorAll("[data-all-categories]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        state.category = null;
+        state.hymnType = null;
+        state.mode = null;
+        renderFacets();
+        renderMain();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      });
+    });
     el.resultsArea.querySelectorAll(".section-item[data-section]").forEach(function (item) {
       item.addEventListener("click", function () {
         state.openSection = parseInt(item.getAttribute("data-section"), 10);
-        state.openVerseIdx = 0;
+        state.openStanzaIdx = 0;
+        state.highlightVerseIdx = null;
         state.wholeCanon = false;
         renderMain();
         window.scrollTo({ top: 0, behavior: "smooth" });
@@ -355,10 +504,33 @@
     return '<div class="genre-badge">' + parts.join(" &nbsp;/&nbsp; ") + modeText + '</div>';
   }
 
-  function renderReadingMode(section, verseIdx) {
-    var flat = flattenVerses(section);
-    verseIdx = Math.max(0, Math.min(verseIdx, flat.length - 1));
-    var entry = flat[verseIdx];
+  // A quick "jump to a different Sharagan (hymn)" strip - every stanza in
+  // the open Ganon, labeled by its genre, current one marked active.
+  function renderSharaganNav(section, activeIdx) {
+    var html = '<div class="sharagan-nav">';
+    section.stanzas.forEach(function (stanza, idx) {
+      html += '<span class="sharagan-nav-chip' + (idx === activeIdx ? " active" : "") + '" data-jump-stanza="' + idx + '">'
+        + escapeHtml(stanzaLabel(stanza, idx)) + '</span>';
+    });
+    html += '</div>';
+    return html;
+  }
+
+  function wireSharaganNav(container) {
+    container.querySelectorAll("[data-jump-stanza]").forEach(function (chip) {
+      chip.addEventListener("click", function () {
+        state.openStanzaIdx = parseInt(chip.getAttribute("data-jump-stanza"), 10);
+        state.highlightVerseIdx = null;
+        renderMain();
+      });
+    });
+  }
+
+  // --- reading mode: one Sharagan (hymn = a whole stanza's verses) at a time ---
+  function renderReadingMode(section, stanzaIdx) {
+    stanzaIdx = Math.max(0, Math.min(stanzaIdx, section.stanzas.length - 1));
+    var stanza = section.stanzas[stanzaIdx];
+    var highlightIdx = state.highlightVerseIdx;
 
     var html = '<div class="reading-card">';
     html += '<div class="reading-topline">';
@@ -367,29 +539,31 @@
     html += '</div>';
 
     html += '<div class="reading-category">' + escapeHtml(section.category) + '</div>';
-    headingLines(section.heading).forEach(function (line) {
-      html += '<div class="reading-heading">' + escapeHtml(line) + '<div class="translit-line">' + escapeHtml(translit(line)) + '</div></div>';
-    });
+    html += renderHeadingBlock(section.heading, "reading-heading");
     html += '<div class="ornament">֍</div>';
 
-    html += genreBadgeHtml(entry.stanza);
-    html += '<div class="verse-progress">Verse ' + (verseIdx + 1) + ' of ' + flat.length + '</div>';
+    html += genreBadgeHtml(stanza);
+    html += '<div class="verse-progress">Sharagan ' + (stanzaIdx + 1) + ' of ' + section.stanzas.length + '</div>';
 
-    html += '<div class="verse-armenian">' + withDropCap(entry.verse.text) + '</div>';
-    html += '<div class="verse-translit">' + escapeHtml(translit(entry.verse.text)) + '</div>';
+    stanza.verses.forEach(function (verse, vi) {
+      var highlighted = highlightIdx !== null && vi === highlightIdx;
+      html += '<div class="sharagan-verse' + (highlighted ? " highlighted" : "") + '"' + (highlighted ? ' id="highlighted-verse"' : "") + '>';
+      html += '<div class="verse-armenian">' + withDropCap(verse.text) + '</div>';
+      html += '<div class="verse-translit">' + escapeHtml(translit(verse.text)) + '</div>';
+      html += '<div class="verse-divider">&#10022;</div>';
+      if (verse.en) {
+        html += '<div class="verse-english">' + withMatchingDropCap(verse.text, verse.en) + '</div>';
+      } else {
+        html += '<div class="verse-english pending">English translation not yet available for this verse.</div>';
+      }
+      html += '</div>';
+    });
 
-    if (entry.verse.en) {
-      html += '<div class="verse-divider">&#10022;</div>';
-      html += '<div class="verse-english">' + withDropCap(entry.verse.en) + '</div>';
-    } else {
-      html += '<div class="verse-divider">&#10022;</div>';
-      html += '<div class="verse-english pending">English translation not yet available for this verse.</div>';
-    }
+    html += renderSharaganNav(section, stanzaIdx);
 
     html += '<div class="reading-nav">';
-    html += '<button class="nav-btn" data-nav="prev"' + (verseIdx === 0 ? " disabled" : "") + '>&larr; Previous</button>';
-    html += '<form class="jump-form" data-jump-form="1">Verse <input type="number" min="1" max="' + flat.length + '" value="' + (verseIdx + 1) + '" data-jump-input="1"> of ' + flat.length + '</form>';
-    html += '<button class="nav-btn" data-nav="next"' + (verseIdx === flat.length - 1 ? " disabled" : "") + '>Next &rarr;</button>';
+    html += '<button class="nav-btn" data-nav="prev"' + (stanzaIdx === 0 ? " disabled" : "") + '>&larr; Previous Sharagan</button>';
+    html += '<button class="nav-btn" data-nav="next"' + (stanzaIdx === section.stanzas.length - 1 ? " disabled" : "") + '>Next Sharagan &rarr;</button>';
     html += '</div>';
     html += '</div>';
 
@@ -405,23 +579,21 @@
     });
     var prevBtn = el.resultsArea.querySelector('[data-nav="prev"]');
     var nextBtn = el.resultsArea.querySelector('[data-nav="next"]');
-    if (prevBtn) prevBtn.addEventListener("click", function () { state.openVerseIdx = verseIdx - 1; renderMain(); });
-    if (nextBtn) nextBtn.addEventListener("click", function () { state.openVerseIdx = verseIdx + 1; renderMain(); });
-    var jumpForm = el.resultsArea.querySelector("[data-jump-form]");
-    if (jumpForm) {
-      jumpForm.addEventListener("submit", function (ev) {
-        ev.preventDefault();
-        var input = jumpForm.querySelector("[data-jump-input]");
-        var n = parseInt(input.value, 10);
-        if (!isNaN(n)) { state.openVerseIdx = n - 1; renderMain(); }
-      });
+    if (prevBtn) prevBtn.addEventListener("click", function () { state.openStanzaIdx = stanzaIdx - 1; state.highlightVerseIdx = null; renderMain(); });
+    if (nextBtn) nextBtn.addEventListener("click", function () { state.openStanzaIdx = stanzaIdx + 1; state.highlightVerseIdx = null; renderMain(); });
+    wireSharaganNav(el.resultsArea);
+
+    if (highlightIdx !== null) {
+      var target = document.getElementById("highlighted-verse");
+      if (target && target.scrollIntoView) target.scrollIntoView({ behavior: "smooth", block: "center" });
     }
 
-    // keyboard navigation
+    // keyboard navigation between Sharagans
     document.onkeydown = function (ev) {
       if (state.openSection === null || state.wholeCanon) return;
-      if (ev.key === "ArrowRight" && verseIdx < flat.length - 1) { state.openVerseIdx = verseIdx + 1; renderMain(); }
-      if (ev.key === "ArrowLeft" && verseIdx > 0) { state.openVerseIdx = verseIdx - 1; renderMain(); }
+      if (ev.target && (ev.target.tagName === "INPUT" || ev.target.tagName === "TEXTAREA")) return;
+      if (ev.key === "ArrowRight" && stanzaIdx < section.stanzas.length - 1) { state.openStanzaIdx = stanzaIdx + 1; state.highlightVerseIdx = null; renderMain(); }
+      if (ev.key === "ArrowLeft" && stanzaIdx > 0) { state.openStanzaIdx = stanzaIdx - 1; state.highlightVerseIdx = null; renderMain(); }
     };
   }
 
@@ -433,29 +605,23 @@
     html += '<button class="view-mode-toggle" data-reading="1">Read one hymn at a time &#8594;</button>';
     html += '</div>';
     html += '<div class="reading-category">' + escapeHtml(section.category) + '</div>';
-    headingLines(section.heading).forEach(function (line) {
-      html += '<div class="reading-heading" style="font-size:20px;">' + escapeHtml(line) + '<div class="translit-line">' + escapeHtml(translit(line)) + '</div></div>';
-    });
+    html += renderHeadingBlock(section.heading, "reading-heading-sm");
     html += '<div class="ornament">֍</div>';
+    html += renderSharaganNav(section, -1);
 
-    var globalIdx = 0;
-    section.stanzas.forEach(function (stanza) {
-      html += '<div class="stanza-block">';
-      if (stanza.type) {
-        var badge = genreBadgeHtml(stanza);
-        html += '<div class="stanza-type-label">' + escapeHtml(stanza.type) + '</div>';
-        if (badge) html += badge;
-      }
-      stanza.verses.forEach(function (verse) {
-        var idx = globalIdx;
-        html += '<div class="whole-verse-line" data-verse-jump="' + idx + '"><span class="verse-num">' + (idx + 1) + '</span>' + escapeHtml(verse.text) + '</div>';
+    section.stanzas.forEach(function (stanza, stanzaIdx) {
+      html += '<div class="stanza-block" data-stanza-block="' + stanzaIdx + '">';
+      html += '<div class="stanza-type-label">Sharagan ' + (stanzaIdx + 1) + (stanza.type ? " &middot; " + escapeHtml(stanza.type) : "") + '</div>';
+      var badge = genreBadgeHtml(stanza);
+      if (badge) html += badge;
+      stanza.verses.forEach(function (verse, vi) {
+        html += '<div class="whole-verse-line" data-jump-stanza-verse="' + stanzaIdx + '"><span class="verse-num">' + (vi + 1) + '</span>' + escapeHtml(verse.text) + '</div>';
         html += '<div class="translit-line">' + escapeHtml(translit(verse.text)) + '</div>';
         if (verse.en) {
           html += '<div class="whole-verse-en">' + escapeHtml(verse.en) + '</div>';
         } else {
           html += '<div class="whole-verse-en pending">Translation not yet available.</div>';
         }
-        globalIdx++;
       });
       html += '</div>';
     });
@@ -470,9 +636,11 @@
       state.wholeCanon = false;
       renderMain();
     });
-    el.resultsArea.querySelectorAll("[data-verse-jump]").forEach(function (line) {
+    wireSharaganNav(el.resultsArea);
+    el.resultsArea.querySelectorAll("[data-jump-stanza-verse]").forEach(function (line) {
       line.addEventListener("click", function () {
-        state.openVerseIdx = parseInt(line.getAttribute("data-verse-jump"), 10);
+        state.openStanzaIdx = parseInt(line.getAttribute("data-jump-stanza-verse"), 10);
+        state.highlightVerseIdx = null;
         state.wholeCanon = false;
         renderMain();
       });
@@ -484,7 +652,7 @@
     if (state.openSection !== null) {
       var section = corpus[state.openSection];
       if (state.wholeCanon) renderWholeCanon(section);
-      else renderReadingMode(section, state.openVerseIdx);
+      else renderReadingMode(section, state.openStanzaIdx);
     } else if (state.query.trim().length > 0) {
       document.onkeydown = null;
       renderSearchResults();
@@ -500,7 +668,7 @@
       state.query = el.searchInput.value;
       state.openSection = null;
       clearTimeout(searchDebounce);
-      searchDebounce = setTimeout(renderMain, 120);
+      searchDebounce = setTimeout(function () { renderFacets(); renderMain(); }, 120);
     });
   }
 

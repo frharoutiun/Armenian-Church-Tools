@@ -1,8 +1,16 @@
 /* Maroon Book transliteration (Unicode Armenian -> Maroon Book, the parish's
- * standard English phonetic hymnal transliteration convention) - the exact,
- * unmodified decodeChar() function from the pastor's own TR tool
- * (https://frharoutiun.github.io/TR/, "unicode > maroon book" mode). Copied
- * verbatim so this tool's transliteration can never drift from TR's own. */
+ * standard English phonetic hymnal transliteration convention) - the
+ * decodeChar() function from the pastor's own TR tool
+ * (https://frharoutiun.github.io/TR/, "unicode > maroon book" mode), copied
+ * verbatim so this tool's transliteration can never drift from TR's own,
+ * with one class of real bug fixed: several branches had an incomplete
+ * if/else-if chain that left the character pointer unadvanced for specific
+ * rare letter combinations (e.g. capital Ի followed by ւ followed by a
+ * consonant outside a narrow historical-exception list - real corpus word
+ * "Իւղաբեր", myrrh-bearing), causing an infinite loop that froze the page.
+ * Fixed the confirmed case directly and added a defensive fallback (marked
+ * below) so no other undiscovered gap of the same kind can hang again -
+ * every other mapping is untouched. */
 function decodeChar(s){
 
     let text = '';
@@ -10,12 +18,13 @@ function decodeChar(s){
         	return c.toLowerCase() !== c.toUpperCase();
       	}
 	        for(i = 0; i<s.length;){
+	            let __sharaganWatchdogI = i;
 	            let v;
 	            let w;
 	            let x;
 	            let y;
 	            let z;
-	            
+
 	            v = ' ';
 	            w = ' ';
 	            x = ' ';
@@ -387,6 +396,10 @@ function decodeChar(s){
 		                        i=i+2;
 	                    	}
 	                    	else if (z=='\u0554' || z=='\u0584') {
+	                    	text = text + ("eev");
+	                        i=i+2;
+	                    	}
+	                    	else {
 	                    	text = text + ("eev");
 	                        i=i+2;
 	                    	}
@@ -1052,6 +1065,14 @@ function decodeChar(s){
 	                    	text = text + ("Eev");
 	                        i=i+2;
 	                    	}
+	                    	else {
+	                    	text = text + ("Eev");
+	                        i=i+2;
+	                    	}
+	                    }
+	                    else {
+	                        text = text + ("Eev");
+	                        i=i+2;
 	                    }
 	                }
 	                else{
@@ -1563,6 +1584,15 @@ function decodeChar(s){
 	                 text = text + (x);
 	                i=i+1;
 	            }
+	            // Safety net (not in the original TR source): a handful of branches
+	            // above have an incomplete if/else-if chain that leaves i (and text)
+	            // untouched for specific rare character combinations (confirmed for
+	            // capital Ի followed by ւ followed by certain consonants,
+	            // e.g. "Իւղ" - real word "Իւղաբեր", myrrh-bearing),
+	            // which otherwise hangs the page in an infinite loop. If nothing
+	            // advanced i this iteration, skip the one unhandled character rather
+	            // than spin forever.
+	            if (i === __sharaganWatchdogI) { i = i + 1; }
 		}
 		return text;
 	        }

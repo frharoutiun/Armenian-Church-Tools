@@ -348,6 +348,62 @@ body.show-translit .translit-line { display: block; }
   margin-top: 8px;
 }
 
+/* --- category tiles: the hymnal's "table of contents" landing page --- */
+.category-tile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.category-tile {
+  border: 1px solid var(--paper-line);
+  background: var(--paper);
+  padding: 18px 18px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: center;
+}
+.category-tile:hover { border-color: var(--gold); box-shadow: 0 2px 10px var(--shadow); }
+
+.category-tile-name {
+  font-family: "GHEA Avandakan", "EB Garamond", Georgia, serif;
+  font-size: 19px;
+  color: var(--wine);
+  margin-bottom: 6px;
+}
+
+.category-tile-count {
+  font-family: "EB Garamond", Georgia, serif;
+  font-variant: small-caps;
+  letter-spacing: 0.04em;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.category-breadcrumb {
+  font-family: "EB Garamond", Georgia, serif;
+  font-size: 14px;
+  margin-bottom: 10px;
+}
+.category-breadcrumb button {
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--wine);
+  cursor: pointer;
+  padding: 2px 0;
+}
+.category-breadcrumb button:hover { color: var(--gold-bright); }
+.category-breadcrumb-current {
+  font-variant: small-caps;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin-left: 4px;
+}
+
 .empty-state {
   color: var(--muted);
   font-style: italic;
@@ -388,6 +444,18 @@ body.show-translit .translit-line { display: block; }
 }
 .back-link:hover, .view-mode-toggle:hover { color: var(--gold-bright); }
 
+.heading-eyebrow {
+  text-align: center;
+  font-family: "EB Garamond", Georgia, serif;
+  font-variant: small-caps;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  font-size: 15px;
+  color: var(--gold);
+  margin: 2px 0;
+}
+.heading-eyebrow .translit-line { text-align: center; font-size: 12px; }
+
 .reading-heading {
   font-family: "GHEA Avandakan", serif;
   color: var(--wine);
@@ -399,6 +467,19 @@ body.show-translit .translit-line { display: block; }
 .reading-heading .translit-line {
   text-align: center;
   font-size: 14px;
+}
+
+.reading-heading-sm {
+  font-family: "GHEA Avandakan", serif;
+  color: var(--wine);
+  font-size: 19px;
+  text-align: center;
+  margin: 4px 0 2px;
+  line-height: 1.3;
+}
+.reading-heading-sm .translit-line {
+  text-align: center;
+  font-size: 12px;
 }
 
 .reading-category {
@@ -414,10 +495,10 @@ body.show-translit .translit-line { display: block; }
 .genre-badge {
   text-align: center;
   font-family: "EB Garamond", Georgia, serif;
-  font-size: 13px;
+  font-size: 18px;
   font-style: italic;
   color: var(--muted);
-  margin-bottom: 18px;
+  margin-bottom: 20px;
 }
 .genre-badge .genre-name { color: var(--wine); font-weight: 700; font-style: normal; }
 
@@ -432,6 +513,17 @@ body.show-translit .translit-line { display: block; }
   margin-bottom: 14px;
 }
 
+.sharagan-verse {
+  padding: 10px 0;
+  margin-bottom: 8px;
+  border-radius: 4px;
+  transition: background 0.6s ease;
+}
+.sharagan-verse.highlighted {
+  background: var(--highlight-bg, rgba(198, 156, 74, 0.14));
+  box-shadow: inset 0 0 0 1px var(--gold);
+}
+
 .verse-armenian {
   font-family: "GHEA Mariam", serif;
   font-size: 25px;
@@ -444,11 +536,16 @@ body.show-translit .translit-line { display: block; }
 
 .verse-armenian .dropcap {
   font-family: "GHEA Avandakan", serif;
-  font-size: 2.7em;
+  font-size: 1.9em;
   color: var(--wine);
   line-height: 0.7;
   float: left;
-  padding: 0.08em 0.07em 0 0;
+  padding: 0.08em 0 0 0;
+  margin-right: -0.08em;
+}
+
+.verse-armenian .dropcap.dropcap-ornament {
+  margin-right: 0.1em;
 }
 
 .verse-translit {
@@ -470,8 +567,8 @@ body.show-translit .verse-translit { display: block; }
 
 .verse-english {
   font-family: "EB Garamond", Georgia, serif;
-  font-size: 20px;
-  line-height: 1.7;
+  font-size: 25px;
+  line-height: 1.65;
   color: var(--ink);
   text-align: center;
   padding: 0 10px;
@@ -480,17 +577,59 @@ body.show-translit .verse-translit { display: block; }
 .verse-english .dropcap {
   font-family: "EB Garamond", Georgia, serif;
   font-weight: 700;
-  font-size: 2.4em;
+  font-size: 1.9em;
   color: var(--wine);
   line-height: 0.72;
   float: left;
-  padding: 0.05em 0.06em 0 0;
+  padding: 0.03em 0 0 0;
+  margin-right: -0.02em;
+}
+
+.verse-english .dropcap.dropcap-ornament {
+  font-family: "GHEA Avandakan", serif;
+  font-weight: 400;
+  font-size: 1.9em;
+  line-height: 0.7;
+  padding: 0.08em 0 0 0;
+  margin-right: -0.08em;
 }
 
 .verse-english.pending {
   font-style: italic;
   color: var(--muted);
   font-size: 15px;
+}
+
+.sharagan-nav {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin: 18px 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--paper-line);
+}
+
+.sharagan-nav-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 12px;
+  font-family: "EB Garamond", Georgia, serif;
+  font-size: 13px;
+  font-weight: 700;
+  border: 1px solid var(--paper-line);
+  background: var(--paper);
+  color: var(--ink);
+  border-radius: 999px;
+  cursor: pointer;
+  user-select: none;
+}
+.sharagan-nav-chip:hover { border-color: var(--gold); }
+.sharagan-nav-chip.active {
+  background: var(--wine);
+  border-color: var(--wine);
+  color: var(--paper-deep);
+  cursor: default;
 }
 
 .reading-nav {
