@@ -213,6 +213,69 @@
     return String(s)
       .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
+
+  // Armenian syllable-boundary hyphenation, so a long heading that has to
+  // break mid-word on a narrow screen breaks with a real hyphen at a
+  // sensible point (e.g. "Աստուածայայտնու-թիւն") instead of just an
+  // arbitrary cut with no hyphen at all. This is a heuristic syllabifier
+  // (maximal-onset rule: a single consonant between two vowels joins the
+  // following vowel; a cluster of two or more splits after the first),
+  // not a verified hyphenation dictionary - it inserts an ordinary Unicode
+  // soft hyphen (­) at each syllable boundary it finds, which every
+  // browser already renders as a hyphen only if a break actually happens
+  // there, and as nothing otherwise - so a wrong guess here is silent
+  // unless the word actually needs to wrap.
+  var ARM_VOWELS = "աեէըիոօԱԵԷԸԻՈՕ";
+  function armenianVowelNuclei(word) {
+    // Each entry is [startIndex, endIndex] (inclusive), covering either a
+    // single vowel letter or one of the two vowel digraphs "ու"/"իւ"
+    // (their second letter, ւ, is never a break point of its own).
+    var nuclei = [];
+    for (var i = 0; i < word.length; i++) {
+      var ch = word.charAt(i);
+      if (ARM_VOWELS.indexOf(ch) === -1) continue;
+      var next = word.charAt(i + 1);
+      if ((ch === "ո" || ch === "Ո" || ch === "ի" || ch === "Ի") && (next === "ւ" || next === "Ւ")) {
+        nuclei.push([i, i + 1]);
+        i += 1;
+      } else {
+        nuclei.push([i, i]);
+      }
+    }
+    return nuclei;
+  }
+  function hyphenateArmenianWord(word) {
+    if (word.length < 9) return word; // short words never need mid-word breaking
+    var nuclei = armenianVowelNuclei(word);
+    if (nuclei.length < 2) return word;
+    var breaks = [];
+    for (var k = 0; k < nuclei.length - 1; k++) {
+      var gapStart = nuclei[k][1] + 1;
+      var gapEnd = nuclei[k + 1][0] - 1; // inclusive indices of consonants between nuclei
+      var consonantCount = gapEnd - gapStart + 1;
+      if (consonantCount <= 0) continue; // adjacent vowels - don't split a hiatus
+      // A single consonant joins the following vowel (break right before
+      // it); a cluster of two or more splits right before its LAST
+      // consonant, so the rest of the cluster stays with the preceding
+      // syllable (e.g. -յայտ-նու-, not -յա-յտնու-).
+      var breakAt = consonantCount === 1 ? gapStart : gapEnd;
+      if (breakAt >= 2 && word.length - breakAt >= 2) breaks.push(breakAt);
+    }
+    if (!breaks.length) return word;
+    var out = "";
+    var cursor = 0;
+    breaks.forEach(function (b) {
+      out += word.slice(cursor, b) + "­";
+      cursor = b;
+    });
+    out += word.slice(cursor);
+    return out;
+  }
+  function hyphenateArmenian(text) {
+    return String(text).replace(/[Ա-Ֆա-և]+/g, function (word) {
+      return hyphenateArmenianWord(word);
+    });
+  }
   // Headings are stored as one string with " / " marking real logical
   // breaks (a leading generic label like "ԿԱՆՈՆ", the feast name, an
   // optional "from X and Y" qualifier) - never a literal newline. Splitting
@@ -240,12 +303,12 @@
     var html = "";
     var rest = parts;
     if (parts.length > 1) {
-      html += '<div class="heading-eyebrow script-original">' + escapeHtml(parts[0]) + '</div>';
+      html += '<div class="heading-eyebrow script-original">' + escapeHtml(hyphenateArmenian(parts[0])) + '</div>';
       html += '<div class="heading-eyebrow script-translit">' + escapeHtml(translit(parts[0])) + '</div>';
       rest = parts.slice(1);
     }
     rest.forEach(function (line) {
-      html += '<div class="' + mainClass + ' script-original">' + escapeHtml(line) + '</div>';
+      html += '<div class="' + mainClass + ' script-original">' + escapeHtml(hyphenateArmenian(line)) + '</div>';
       html += '<div class="' + mainClass + ' script-translit">' + escapeHtml(translit(line)) + '</div>';
     });
     return html;
@@ -791,7 +854,7 @@
     var heading = compactHeading(section.heading);
     var html = '<div class="section-item" data-section="' + section.id + '">';
     html += '<div class="section-cat">' + escapeHtml(section.category) + '</div>';
-    html += '<div class="section-heading script-original" style="font-size:19px;">' + escapeHtml(heading) + '</div>';
+    html += '<div class="section-heading script-original" style="font-size:19px;">' + escapeHtml(hyphenateArmenian(heading)) + '</div>';
     html += '<div class="section-heading script-translit" style="font-size:19px;">' + escapeHtml(translit(heading)) + '</div>';
     html += '</div>';
     return html;
@@ -903,14 +966,44 @@
   // the toggle is on. A hymn can have several genuine connected passages;
   // when it does, a small tab strip switches between them (one at a time
   // shown, so the panel never turns into an unreadable wall of text). ---
-  function scriptureVerseListHtml(list, scriptClass, highlightVerses) {
+  // Bolds the exact phrase(s) (keyPhrases - one string, or an array when a
+  // multi-verse citation has a separate key phrase in each verse) the hymn
+  // is actually drawing on, wherever they appear in this verse's text - so
+  // a long Bible verse (or a whole chapter of them) doesn't leave the
+  // reader hunting for the two or three words that are the actual point of
+  // the connection. Each phrase must be an exact substring of the verse
+  // text; one that isn't found (or wasn't given at all) is silently
+  // skipped, same as before.
+  function verseTextHtml(text, keyPhrases) {
+    var phrases = Array.isArray(keyPhrases) ? keyPhrases : (keyPhrases ? [keyPhrases] : []);
+    var matches = [];
+    phrases.forEach(function (phrase) {
+      if (!phrase) return;
+      var idx = text.indexOf(phrase);
+      if (idx !== -1) matches.push([idx, idx + phrase.length]);
+    });
+    if (!matches.length) return escapeHtml(text);
+    matches.sort(function (a, b) { return a[0] - b[0]; });
+    var html = "";
+    var cursor = 0;
+    matches.forEach(function (m) {
+      if (m[0] < cursor) return; // overlapping with an earlier match - skip
+      html += escapeHtml(text.slice(cursor, m[0]));
+      html += "<strong>" + escapeHtml(text.slice(m[0], m[1])) + "</strong>";
+      cursor = m[1];
+    });
+    html += escapeHtml(text.slice(cursor));
+    return html;
+  }
+
+  function scriptureVerseListHtml(list, scriptClass, highlightVerses, keyPhrase) {
     var html = "";
     (list || []).forEach(function (item) {
       var isHighlighted = Boolean(highlightVerses && item.v && highlightVerses.indexOf(item.v) !== -1);
       html += '<p class="scripture-verse ' + scriptClass + (isHighlighted ? " scripture-verse-highlighted" : "") + '"'
         + (isHighlighted ? ' data-scripture-highlighted="1"' : "") + '>';
       if (item.v) html += '<span class="scripture-verse-num">' + item.v + '</span>';
-      html += escapeHtml(item.t) + "</p>";
+      html += verseTextHtml(item.t, keyPhrase) + "</p>";
     });
     return html;
   }
@@ -939,8 +1032,8 @@
     if (active.note) html += '<div class="scripture-entry-note">' + escapeHtml(active.note) + '</div>';
     html += '</div>';
     html += '<div class="scripture-columns">';
-    html += '<div class="scripture-column scripture-column-arm">' + scriptureVerseListHtml(active.armenian, "scripture-arm") + '</div>';
-    html += '<div class="scripture-column scripture-column-en">' + scriptureVerseListHtml(active.english, "scripture-en") + '</div>';
+    html += '<div class="scripture-column scripture-column-arm">' + scriptureVerseListHtml(active.armenian, "scripture-arm", null, active.armKey) + '</div>';
+    html += '<div class="scripture-column scripture-column-en">' + scriptureVerseListHtml(active.english, "scripture-en", null, active.enKey) + '</div>';
     html += '</div>';
     if (active.chapterArmenian) {
       html += '<button class="scripture-chapter-btn" data-scripture-chapter="' + scriptureActiveTab + '" type="button">View the whole chapter &rarr;</button>';
@@ -989,8 +1082,8 @@
     html += '</div>';
     html += '<div class="scripture-dialog-body">';
     html += '<div class="scripture-columns">';
-    html += '<div class="scripture-column scripture-column-arm">' + scriptureVerseListHtml(entry.chapterArmenian, "scripture-arm", verseNumbersOf(entry.armenian)) + '</div>';
-    html += '<div class="scripture-column scripture-column-en">' + scriptureVerseListHtml(entry.chapterEnglish, "scripture-en", verseNumbersOf(entry.english)) + '</div>';
+    html += '<div class="scripture-column scripture-column-arm">' + scriptureVerseListHtml(entry.chapterArmenian, "scripture-arm", verseNumbersOf(entry.armenian), entry.armKey) + '</div>';
+    html += '<div class="scripture-column scripture-column-en">' + scriptureVerseListHtml(entry.chapterEnglish, "scripture-en", verseNumbersOf(entry.english), entry.enKey) + '</div>';
     html += '</div>';
     html += '</div>';
     html += '</div>';

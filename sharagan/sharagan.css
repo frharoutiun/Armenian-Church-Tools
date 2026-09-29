@@ -684,6 +684,23 @@ body.phrase-link .phrase-active {
   opacity: 0.75;
 }
 
+/* Native browser hyphenation for English text (the page is lang="en", so
+   the browser's own English hyphenation dictionary applies) - when a long
+   word has to break at the edge of the viewport, it breaks at a real
+   syllable with a hyphen shown, instead of an arbitrary cut with no mark
+   at all. Armenian doesn't get this from the browser (no built-in
+   dictionary for it) - see hyphenateArmenian() in sharagan.js for that
+   side instead. */
+.verse-english,
+.result-en,
+.scripture-verse.scripture-en,
+.reading-heading.script-translit,
+.reading-heading-sm.script-translit,
+.section-heading.script-translit,
+.result-text.script-translit {
+  hyphens: auto;
+}
+
 .verse-english {
   font-family: "EB Garamond", Georgia, serif;
   font-size: 25px;
@@ -996,6 +1013,13 @@ body.wide-reading .app { max-width: 1180px; }
 .scripture-verse-highlighted {
   background: rgba(var(--wine-rgb), 0.16);
   box-shadow: inset 0 0 0 1px rgba(var(--wine-rgb), 0.4);
+}
+/* The exact phrase the hymn is actually drawing on, within a verse (or a
+   whole chapter of them) - bolded and colored so it doesn't take hunting
+   through the full verse text to see what's actually being connected. */
+.scripture-verse strong {
+  color: var(--wine);
+  font-weight: 700;
 }
 .scripture-verse-num {
   font-family: "EB Garamond", Georgia, serif;
