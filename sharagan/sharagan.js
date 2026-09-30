@@ -90,24 +90,28 @@
     });
   }
 
-  // --- scripture-reference toggle: off by default. When on, a hymn shows
-  // the real Bible passage(s) its OWN text actually alludes to - found by
+  // --- scripture reference: off by default. When on, a hymn shows the
+  // real Bible passage(s) its OWN text actually alludes to - found by
   // reading the hymn itself, not a blanket "every hymn in this Ode-slot
   // cites the same generic canticle" rule. Classical Armenian (Zohrab, via
   // arak29.org) alongside the RSV. A hymn can have several real connected
-  // passages (a hymn is rarely built on just one allusion); when it does,
-  // a small tab strip lets you switch between them. This is currently
-  // authored only for section 0 (the one fully-translated sample section) -
-  // data/stanza-refs.json is keyed {sectionId: {stanzaIndex: [passage,...]}},
-  // and a stanza/section with no entry simply shows nothing. The data
-  // behind this is tiny and loaded lazily, only once the toggle is on. ---
-  var scriptureToggle = document.getElementById("scriptureToggle");
-  var SCRIPTURE_KEY = "sharaganScripture";
+  // passages (a hymn is rarely built on just one allusion); an optional
+  // up-front disclosure shows them all together, tabbed, right before the
+  // first verse, and each verse that anchors a passage also gets its own
+  // small inline chip, expanding a footnote right there. data/stanza-refs.json
+  // is keyed {sectionId: {stanzaIndex: [passage,...]}}; a stanza/section
+  // with no entry simply shows nothing. Loaded lazily, only once this
+  // control is on. This single control also turns on the permanent
+  // phrase-link underline (see updatePhraseLinkClass) - scripture
+  // citations and phrase-link pairs are two sides of the same "show me
+  // what's connected in this text" idea, so one switch covers both;
+  // "Link matching phrases" (above) stays available on its own for a
+  // lighter-weight, hover-only version of just that one piece. ---
   var scriptureRefs = null;
   var scriptureRefsPromise = null;
   var scriptureActiveTab = 0; // which passage tab is showing, reset per stanza
   var lastScriptureStanzaKey = null; // "sectionId:stanzaIdx" - detects a genuine stanza change
-  var studyAllCitationsOpen = false; // whether study mode's "show all references" panel is expanded, reset per stanza
+  var studyAllCitationsOpen = false; // whether the "show all references" panel is expanded, reset per stanza
   function loadScriptureRefs() {
     if (scriptureRefsPromise) return scriptureRefsPromise;
     scriptureRefsPromise = fetch("data/stanza-refs.json")
@@ -116,39 +120,6 @@
       .catch(function () { scriptureRefs = {}; return scriptureRefs; });
     return scriptureRefsPromise;
   }
-  function applyScriptureState(on) {
-    document.body.classList.toggle("show-scripture", on);
-    if (scriptureToggle) scriptureToggle.checked = on;
-    if (on) {
-      loadScriptureRefs().then(function () {
-        if (state.openSection !== null && !state.wholeCanon) renderMain();
-      });
-    }
-  }
-  var savedScripture = false;
-  try { savedScripture = localStorage.getItem(SCRIPTURE_KEY) === "1"; } catch (e) {}
-  applyScriptureState(savedScripture);
-  if (scriptureToggle) {
-    scriptureToggle.addEventListener("change", function () {
-      applyScriptureState(scriptureToggle.checked);
-      try { localStorage.setItem(SCRIPTURE_KEY, scriptureToggle.checked ? "1" : "0"); } catch (e) {}
-      if (state.openSection !== null && !state.wholeCanon) renderMain();
-    });
-  }
-
-  // --- study mode (experimental, opt-in): a single toggle exploring a more
-  // intuitive alternative to the phrase-link/scripture-reference toggles
-  // above. Instead of a hover-only phrase link (invisible until you happen
-  // to hover it) and a scripture passage shown in a separate side panel
-  // (floating away from the exact verse it's about, especially on mobile,
-  // where it becomes a stacked block below instead), this mode: (1) shows
-  // phrase-link connections as a permanent, subtle underline rather than a
-  // hover-only reveal, and (2) shows scripture citations as small inline
-  // chips right under the verse they belong to, each expanding an inline
-  // footnote in place (like a study-Bible footnote) instead of a docked
-  // aside - so the reader's eye never has to leave the verse. Left as a
-  // separate opt-in control (not a replacement) so the existing toggles'
-  // behavior stays exactly as shipped while this is evaluated. ---
   var studyModeToggle = document.getElementById("studyModeToggle");
   var STUDY_MODE_KEY = "sharaganStudyMode";
   function applyStudyModeState(on) {
@@ -1151,7 +1122,7 @@
     currentScripturePassages = passages;
     if (scriptureActiveTab >= passages.length) scriptureActiveTab = 0;
     var active = passages[scriptureActiveTab];
-    var html = '<aside class="scripture-panel" aria-label="Connected scripture passages">';
+    var html = '<div class="scripture-panel-inline" role="region" aria-label="Connected scripture passages">';
     if (passages.length > 1) {
       html += '<div class="scripture-tabs" role="tablist" aria-label="Connected passages">';
       passages.forEach(function (p, idx) {
@@ -1172,7 +1143,7 @@
       html += '<button class="scripture-chapter-btn" data-scripture-chapter="' + scriptureActiveTab + '" type="button">View the whole chapter &rarr;</button>';
     }
     html += '</div>';
-    html += '</aside>';
+    html += '</div>';
     return html;
   }
 
@@ -1284,26 +1255,21 @@
     html += '<div class="verse-progress">Sharagan ' + (stanzaIdx + 1) + ' of ' + section.stanzas.length + '</div>';
     html += renderSharaganNav(section, stanzaIdx);
 
-    var scriptureOn = document.body.classList.contains("show-scripture");
     var scriptureStanzaKey = section.id + ":" + stanzaIdx;
     if (scriptureStanzaKey !== lastScriptureStanzaKey) {
       scriptureActiveTab = 0;
       studyAllCitationsOpen = false;
       lastScriptureStanzaKey = scriptureStanzaKey;
     }
-    var scriptureEntries = (scriptureOn || studyModeOn) ? scripturePassagesForStanza(section.id, stanzaIdx) : [];
+    var scriptureEntries = studyModeOn ? scripturePassagesForStanza(section.id, stanzaIdx) : [];
     var hasScripture = scriptureEntries.length > 0;
-    if (hasScripture) currentScripturePassages = scriptureEntries; // so a study-mode chip's "view whole chapter" button works too
-    var showAsidePanel = scriptureOn && hasScripture;
-    document.body.classList.toggle("wide-reading", showAsidePanel);
+    if (hasScripture) currentScripturePassages = scriptureEntries; // so the "view whole chapter" button works
 
-    // Study mode's alternative to the old aside panel: an up-front,
-    // optional disclosure right before the first verse, showing every
-    // connected passage for the whole Sharagan at once (same tabbed,
-    // bilingual design as the aside panel always had - just reused inline
-    // here) - so a reader can still browse all of a hymn's citations
-    // together, while ALSO having the per-verse inline chips below.
-    if (studyModeOn && hasScripture) {
+    // An up-front, optional disclosure right before the first verse,
+    // showing every connected passage for the whole Sharagan at once
+    // (tabbed, bilingual) - so a reader can browse all of a hymn's
+    // citations together, in addition to the per-verse inline chips below.
+    if (hasScripture) {
       html += '<div class="study-all-citations">';
       html += '<button type="button" class="study-all-citations-toggle" data-study-all-toggle="1">'
         + (studyAllCitationsOpen
@@ -1316,8 +1282,6 @@
       }
       html += '</div>';
     }
-
-    if (showAsidePanel) html += '<div class="reading-body-grid"><div class="reading-hymn-col">';
 
     stanza.verses.forEach(function (verse, vi) {
       var highlighted = highlightIdx !== null && vi === highlightIdx;
@@ -1339,15 +1303,9 @@
       } else {
         html += '<div class="verse-english pending">English translation not yet available for this verse.</div>';
       }
-      if (studyModeOn) html += studyScriptureChipsHtml(scripturePairs, scriptureEntries, groupPrefix);
+      if (hasScripture) html += studyScriptureChipsHtml(scripturePairs, scriptureEntries, groupPrefix);
       html += '</div>';
     });
-
-    if (showAsidePanel) {
-      html += '</div>'; // .reading-hymn-col
-      html += scripturePanelHtml(scriptureEntries);
-      html += '</div>'; // .reading-body-grid
-    }
 
     html += '<div class="reading-nav">';
     html += '<button class="nav-btn" data-nav="prev"' + (stanzaIdx === 0 ? " disabled" : "") + '>&larr; Previous Sharagan</button>';
@@ -1373,12 +1331,10 @@
     wireWordLinks(el.resultsArea);
     wirePhraseHover(el.resultsArea);
     // Wires the in-text scripture-hymn-link spans (clickable wherever a
-    // connected phrase appears, regardless of which panel if any is
-    // showing) plus any tab-strip/chapter buttons actually present -
-    // whether that's the old aside panel, study mode's inline "all
-    // citations" panel, or both at once.
+    // connected phrase appears) plus the "all citations" panel's own
+    // tab-strip/chapter buttons, when either is present.
     if (hasScripture) wireScripturePanel(el.resultsArea, function () { renderMain(); });
-    if (studyModeOn && hasScripture) wireStudyScriptureChips(el.resultsArea, scriptureEntries);
+    if (hasScripture) wireStudyScriptureChips(el.resultsArea, scriptureEntries);
     var allCitationsBtn = el.resultsArea.querySelector("[data-study-all-toggle]");
     if (allCitationsBtn) {
       allCitationsBtn.addEventListener("click", function () {
@@ -1535,7 +1491,6 @@
 
   function renderMain() {
     updateSearchPanelVisibility();
-    document.body.classList.remove("wide-reading");
     if (state.openSection !== null) {
       var section = corpus[state.openSection];
       if (state.wholeCanon) renderWholeCanon(section);
