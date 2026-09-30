@@ -429,7 +429,7 @@ body.show-translit .result-loc.script-translit { display: inline-block; }
 
 .jump-link {
   font-family: "EB Garamond", Georgia, serif;
-  font-size: var(--fs-xs);
+  font-size: var(--fs-md);
   font-weight: 700;
   color: var(--wine);
   text-decoration: none;
@@ -527,7 +527,7 @@ body.show-translit .result-loc.script-translit { display: inline-block; }
   background: none;
   border: none;
   font-family: "EB Garamond", Georgia, serif;
-  font-size: var(--fs-xs);
+  font-size: var(--fs-base);
   font-weight: 700;
   color: var(--wine);
   cursor: pointer;
@@ -756,7 +756,7 @@ body.study-mode .phrase {
 }
 .study-all-citations-toggle {
   font-family: "EB Garamond", Georgia, serif;
-  font-size: var(--fs-xs);
+  font-size: var(--fs-base);
   font-weight: 700;
   font-style: italic;
   color: var(--wine);
@@ -975,7 +975,7 @@ body.study-mode .phrase {
 }
 .whole-canon-link a {
   font-family: "EB Garamond", Georgia, serif;
-  font-size: var(--fs-xs);
+  font-size: var(--fs-md);
   font-weight: 700;
   color: var(--muted);
   text-decoration: underline;
@@ -1195,7 +1195,7 @@ body.wide-reading .app { max-width: 1180px; }
   background: none;
   border: none;
   font-family: "EB Garamond", Georgia, serif;
-  font-size: var(--fs-xs);
+  font-size: var(--fs-md);
   font-weight: 700;
   color: var(--wine);
   cursor: pointer;
