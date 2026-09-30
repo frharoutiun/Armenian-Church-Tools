@@ -68,9 +68,17 @@
   // highlights its English equivalent (and vice versa) only while this is on ---
   var phraseLinkToggle = document.getElementById("phraseLinkToggle");
   var PHRASE_LINK_KEY = "sharaganPhraseLink";
+  // Study mode (below) always wants phrase-linking active too, since it's
+  // meant to be a "turn on everything, inline" mode - rather than
+  // duplicating the CSS/hover wiring, the "phrase-link" body class is
+  // computed as this toggle's own state OR'd with study mode's.
+  var studyModeOn = false;
+  function updatePhraseLinkClass() {
+    document.body.classList.toggle("phrase-link", Boolean((phraseLinkToggle && phraseLinkToggle.checked) || studyModeOn));
+  }
   function applyPhraseLinkState(on) {
-    document.body.classList.toggle("phrase-link", on);
     if (phraseLinkToggle) phraseLinkToggle.checked = on;
+    updatePhraseLinkClass();
   }
   var savedPhraseLink = false;
   try { savedPhraseLink = localStorage.getItem(PHRASE_LINK_KEY) === "1"; } catch (e) {}
@@ -99,6 +107,7 @@
   var scriptureRefsPromise = null;
   var scriptureActiveTab = 0; // which passage tab is showing, reset per stanza
   var lastScriptureStanzaKey = null; // "sectionId:stanzaIdx" - detects a genuine stanza change
+  var studyAllCitationsOpen = false; // whether study mode's "show all references" panel is expanded, reset per stanza
   function loadScriptureRefs() {
     if (scriptureRefsPromise) return scriptureRefsPromise;
     scriptureRefsPromise = fetch("data/stanza-refs.json")
@@ -124,6 +133,103 @@
       applyScriptureState(scriptureToggle.checked);
       try { localStorage.setItem(SCRIPTURE_KEY, scriptureToggle.checked ? "1" : "0"); } catch (e) {}
       if (state.openSection !== null && !state.wholeCanon) renderMain();
+    });
+  }
+
+  // --- study mode (experimental, opt-in): a single toggle exploring a more
+  // intuitive alternative to the phrase-link/scripture-reference toggles
+  // above. Instead of a hover-only phrase link (invisible until you happen
+  // to hover it) and a scripture passage shown in a separate side panel
+  // (floating away from the exact verse it's about, especially on mobile,
+  // where it becomes a stacked block below instead), this mode: (1) shows
+  // phrase-link connections as a permanent, subtle underline rather than a
+  // hover-only reveal, and (2) shows scripture citations as small inline
+  // chips right under the verse they belong to, each expanding an inline
+  // footnote in place (like a study-Bible footnote) instead of a docked
+  // aside - so the reader's eye never has to leave the verse. Left as a
+  // separate opt-in control (not a replacement) so the existing toggles'
+  // behavior stays exactly as shipped while this is evaluated. ---
+  var studyModeToggle = document.getElementById("studyModeToggle");
+  var STUDY_MODE_KEY = "sharaganStudyMode";
+  function applyStudyModeState(on) {
+    studyModeOn = on;
+    document.body.classList.toggle("study-mode", on);
+    if (studyModeToggle) studyModeToggle.checked = on;
+    updatePhraseLinkClass();
+    if (on) {
+      loadScriptureRefs().then(function () {
+        if (state.openSection !== null && !state.wholeCanon) renderMain();
+      });
+    }
+  }
+  var savedStudyMode = false;
+  try { savedStudyMode = localStorage.getItem(STUDY_MODE_KEY) === "1"; } catch (e) {}
+  applyStudyModeState(savedStudyMode);
+  if (studyModeToggle) {
+    studyModeToggle.addEventListener("change", function () {
+      applyStudyModeState(studyModeToggle.checked);
+      try { localStorage.setItem(STUDY_MODE_KEY, studyModeToggle.checked ? "1" : "0"); } catch (e) {}
+      if (state.openSection !== null && !state.wholeCanon) renderMain();
+    });
+  }
+
+  // One scripture citation "chip" per distinct passage this verse connects
+  // to (a verse can be the anchor for more than one passage) - clicking a
+  // chip expands/collapses an inline footnote directly below it, closing
+  // any other open footnote in the same verse first (one at a time, so the
+  // verse doesn't grow unboundedly tall).
+  function studyScriptureChipsHtml(scripturePairsForVerse, scriptureEntries, groupPrefix) {
+    if (!scripturePairsForVerse.length) return "";
+    var seen = {};
+    var chips = "";
+    scripturePairsForVerse.forEach(function (p) {
+      if (seen[p.tabIdx]) return;
+      seen[p.tabIdx] = true;
+      var entry = scriptureEntries[p.tabIdx];
+      if (!entry) return;
+      chips += '<button type="button" class="study-scripture-chip" data-study-chip="' + groupPrefix + '" data-study-tab="' + p.tabIdx + '">📖 ' + escapeHtml(entry.ref || "") + '</button>';
+    });
+    if (!chips) return "";
+    return '<div class="study-scripture-chips">' + chips + '</div><div class="study-scripture-footnotes" data-study-footnotes="' + groupPrefix + '"></div>';
+  }
+
+  function studyFootnoteHtml(entry, tabIdx) {
+    var html = '<div class="scripture-inline-footnote">';
+    html += '<div class="scripture-entry-head">';
+    html += '<div class="scripture-entry-citation">' + escapeHtml(entry.ref) + '</div>';
+    if (entry.note) html += '<div class="scripture-entry-note">' + escapeHtml(entry.note) + '</div>';
+    html += '</div>';
+    html += '<div class="scripture-columns">';
+    html += '<div class="scripture-column scripture-column-arm">' + scriptureVerseListHtml(entry.armenian, "scripture-arm", null, entry.armKey) + '</div>';
+    html += '<div class="scripture-column scripture-column-en">' + scriptureVerseListHtml(entry.english, "scripture-en", null, entry.enKey) + '</div>';
+    html += '</div>';
+    if (entry.chapterArmenian) {
+      html += '<button class="scripture-chapter-btn" data-study-chapter="' + tabIdx + '" type="button">View the whole chapter &rarr;</button>';
+    }
+    html += '</div>';
+    return html;
+  }
+
+  function wireStudyScriptureChips(container, scriptureEntries) {
+    container.querySelectorAll("[data-study-chip]").forEach(function (chip) {
+      chip.addEventListener("click", function () {
+        var groupPrefix = chip.getAttribute("data-study-chip");
+        var tabIdx = parseInt(chip.getAttribute("data-study-tab"), 10) || 0;
+        var footnoteContainer = container.querySelector('[data-study-footnotes="' + groupPrefix + '"]');
+        var wasOpen = chip.classList.contains("open");
+        container.querySelectorAll('.study-scripture-chip[data-study-chip="' + groupPrefix + '"]').forEach(function (c) {
+          c.classList.remove("open");
+        });
+        if (wasOpen) { footnoteContainer.innerHTML = ""; return; }
+        chip.classList.add("open");
+        var entry = scriptureEntries[tabIdx];
+        if (!entry) return;
+        footnoteContainer.innerHTML = studyFootnoteHtml(entry, tabIdx);
+        var chapterBtn = footnoteContainer.querySelector("[data-study-chapter]");
+        if (chapterBtn) {
+          chapterBtn.addEventListener("click", function () { openScriptureDialog(tabIdx, chapterBtn); });
+        }
+      });
     });
   }
 
@@ -801,7 +907,7 @@
     if (isArmenianQuery(q)) {
       var out = searchArmenian(q);
       var sectionCount = Array.from(new Set(out.results.map(function (r) { return r.section.id; }))).length;
-      html += '<div class="results-summary">' + out.results.length + ' occurrence(s) across ' + sectionCount + ' section(s)'
+      html += '<div class="results-summary">Concordance &mdash; ' + out.results.length + ' occurrence(s) across ' + sectionCount + ' section(s)'
         + (out.lemmas.length ? ' &mdash; root(s): ' + out.lemmas.map(function (l) {
             return '<strong>' + escapeHtml(l) + '</strong> (' + (wordForms[l] || []).map(escapeHtml).join(', ') + ')';
           }).join('; ') : '')
@@ -809,8 +915,34 @@
       if (out.results.length === 0) {
         html += '<div class="empty-state">No matches found for this word or root in the corpus.</div>';
       } else {
+        // Grouped by feast/commemoration category (in the same liturgical
+        // order as the category tiles on the landing page), each a
+        // collapsible <details> block, so a long concordance reads as a
+        // browsable table of contents rather than one flat list - genuinely
+        // useful when a root turns up in 40+ hymns across a dozen feasts.
+        var categoryOrder = {};
+        (facets.categories || []).forEach(function (pair, i) { categoryOrder[pair[0]] = i; });
+        var groupsByCategory = {};
+        var groups = [];
         out.results.slice(0, 300).forEach(function (r) {
-          html += renderResultItem(r.section, r.verse, r.verseIdx, r.form);
+          var cat = r.section.category;
+          if (!groupsByCategory[cat]) {
+            groupsByCategory[cat] = { category: cat, items: [] };
+            groups.push(groupsByCategory[cat]);
+          }
+          groupsByCategory[cat].items.push(r);
+        });
+        groups.sort(function (a, b) {
+          var ra = categoryOrder[a.category], rb = categoryOrder[b.category];
+          ra = ra === undefined ? 999 : ra;
+          rb = rb === undefined ? 999 : rb;
+          return ra - rb;
+        });
+        groups.forEach(function (g) {
+          html += '<details class="concordance-group" open><summary class="concordance-group-summary">'
+            + escapeHtml(g.category) + ' <span class="count">(' + g.items.length + ')</span></summary>';
+          g.items.forEach(function (r) { html += renderResultItem(r.section, r.verse, r.verseIdx, r.form); });
+          html += '</details>';
         });
         if (out.results.length > 300) {
           html += '<div class="results-summary">Showing the first 300 of ' + out.results.length + ' matches.</div>';
@@ -818,8 +950,7 @@
       }
     } else {
       var enResults = searchEnglish(q);
-      html += '<div class="results-summary">' + enResults.length + ' match(es) in the English translation '
-        + '(only one section is translated so far &mdash; more will appear as translation continues).</div>';
+      html += '<div class="results-summary">' + enResults.length + ' match(es) in the English translation.</div>';
       if (enResults.length === 0) {
         html += '<div class="empty-state">No English matches yet. Try an Armenian word instead.</div>';
       } else {
@@ -1157,13 +1288,36 @@
     var scriptureStanzaKey = section.id + ":" + stanzaIdx;
     if (scriptureStanzaKey !== lastScriptureStanzaKey) {
       scriptureActiveTab = 0;
+      studyAllCitationsOpen = false;
       lastScriptureStanzaKey = scriptureStanzaKey;
     }
-    var scriptureEntries = scriptureOn ? scripturePassagesForStanza(section.id, stanzaIdx) : [];
+    var scriptureEntries = (scriptureOn || studyModeOn) ? scripturePassagesForStanza(section.id, stanzaIdx) : [];
     var hasScripture = scriptureEntries.length > 0;
-    document.body.classList.toggle("wide-reading", hasScripture);
+    if (hasScripture) currentScripturePassages = scriptureEntries; // so a study-mode chip's "view whole chapter" button works too
+    var showAsidePanel = scriptureOn && hasScripture;
+    document.body.classList.toggle("wide-reading", showAsidePanel);
 
-    if (hasScripture) html += '<div class="reading-body-grid"><div class="reading-hymn-col">';
+    // Study mode's alternative to the old aside panel: an up-front,
+    // optional disclosure right before the first verse, showing every
+    // connected passage for the whole Sharagan at once (same tabbed,
+    // bilingual design as the aside panel always had - just reused inline
+    // here) - so a reader can still browse all of a hymn's citations
+    // together, while ALSO having the per-verse inline chips below.
+    if (studyModeOn && hasScripture) {
+      html += '<div class="study-all-citations">';
+      html += '<button type="button" class="study-all-citations-toggle" data-study-all-toggle="1">'
+        + (studyAllCitationsOpen
+            ? "Hide the full list of scripture references &uarr;"
+            : "Show all " + scriptureEntries.length + " scripture reference" + (scriptureEntries.length === 1 ? "" : "s")
+              + " for this Sharagan &darr;")
+        + '</button>';
+      if (studyAllCitationsOpen) {
+        html += '<div class="study-all-citations-panel">' + scripturePanelHtml(scriptureEntries) + '</div>';
+      }
+      html += '</div>';
+    }
+
+    if (showAsidePanel) html += '<div class="reading-body-grid"><div class="reading-hymn-col">';
 
     stanza.verses.forEach(function (verse, vi) {
       var highlighted = highlightIdx !== null && vi === highlightIdx;
@@ -1185,10 +1339,11 @@
       } else {
         html += '<div class="verse-english pending">English translation not yet available for this verse.</div>';
       }
+      if (studyModeOn) html += studyScriptureChipsHtml(scripturePairs, scriptureEntries, groupPrefix);
       html += '</div>';
     });
 
-    if (hasScripture) {
+    if (showAsidePanel) {
       html += '</div>'; // .reading-hymn-col
       html += scripturePanelHtml(scriptureEntries);
       html += '</div>'; // .reading-body-grid
@@ -1217,7 +1372,20 @@
     wireSharaganNav(el.resultsArea);
     wireWordLinks(el.resultsArea);
     wirePhraseHover(el.resultsArea);
+    // Wires the in-text scripture-hymn-link spans (clickable wherever a
+    // connected phrase appears, regardless of which panel if any is
+    // showing) plus any tab-strip/chapter buttons actually present -
+    // whether that's the old aside panel, study mode's inline "all
+    // citations" panel, or both at once.
     if (hasScripture) wireScripturePanel(el.resultsArea, function () { renderMain(); });
+    if (studyModeOn && hasScripture) wireStudyScriptureChips(el.resultsArea, scriptureEntries);
+    var allCitationsBtn = el.resultsArea.querySelector("[data-study-all-toggle]");
+    if (allCitationsBtn) {
+      allCitationsBtn.addEventListener("click", function () {
+        studyAllCitationsOpen = !studyAllCitationsOpen;
+        renderMain();
+      });
+    }
 
     if (highlightIdx !== null) {
       var target = document.getElementById("highlighted-verse");

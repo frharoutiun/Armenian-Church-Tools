@@ -66,6 +66,24 @@
   --gold-bright: #c9971f;
   --shadow: rgba(42, 28, 18, 0.16);
   color-scheme: light;
+
+  /* --- type scale ----------------------------------------------------
+     One deliberate ladder of sizes, reused everywhere, instead of each
+     element picking its own one-off value (the site previously had ~25
+     distinct font-sizes within a few px of each other, which is what made
+     the whole page feel hard to visually scan/navigate). Every font-size
+     declaration below references one of these; nothing else. */
+  --fs-2xs: 12px;  /* tiniest labels: pill badges, tiny caption text */
+  --fs-xs: 13px;   /* buttons, chips, nav links, footer, hints */
+  --fs-sm: 14px;   /* secondary/meta text: summaries, toggle labels */
+  --fs-md: 16px;   /* compact reading text: subtitle, secondary translations */
+  --fs-base: 17px; /* body base: search input, category label */
+  --fs-lg: 19px;   /* prominent secondary text: titles, list headings */
+  --fs-xl: 21px;   /* compact/mobile heading tier, genre badge */
+  --fs-2xl: 25px;  /* the hymn text itself (Armenian + English), desktop */
+  --fs-3xl: 27px;  /* secondary reading heading */
+  --fs-4xl: 36px;  /* main reading heading */
+  --fs-5xl: 44px;  /* site title */
 }
 
 :root[data-effective-theme="dark"] {
@@ -90,7 +108,7 @@ body {
   background: var(--paper);
   color: var(--ink);
   font-family: "GHEA Mariam", "EB Garamond", Georgia, serif;
-  font-size: 17px;
+  font-size: var(--fs-base);
   line-height: 1.6;
   transition: background-color 200ms ease, color 200ms ease;
 }
@@ -113,7 +131,7 @@ body {
   text-align: center;
   color: var(--gold);
   font-family: "GHEA Avandakan", serif;
-  font-size: 26px;
+  font-size: var(--fs-3xl);
   margin: 10px 0 18px;
   letter-spacing: 0.4em;
   opacity: 0.9;
@@ -127,7 +145,7 @@ body {
 
 .hymnal-title {
   font-family: "GHEA Avandakan", serif;
-  font-size: 44px;
+  font-size: var(--fs-5xl);
   color: var(--wine);
   margin: 0;
   line-height: 1.15;
@@ -148,7 +166,7 @@ body {
   display: inline-block;
   padding: 3px 10px;
   font-family: "EB Garamond", Georgia, serif;
-  font-size: 12px;
+  font-size: var(--fs-2xs);
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -163,7 +181,7 @@ body {
   font-family: "EB Garamond", Georgia, serif;
   font-style: italic;
   color: var(--muted);
-  font-size: 16px;
+  font-size: var(--fs-md);
   margin: 6px 0 0;
 }
 
@@ -181,7 +199,7 @@ body {
   align-items: center;
   gap: 6px;
   font-family: "EB Garamond", Georgia, serif;
-  font-size: 14px;
+  font-size: var(--fs-sm);
   font-weight: 700;
   color: var(--wine);
 }
@@ -189,7 +207,7 @@ body {
 
 .theme-select-wrap select {
   font-family: "EB Garamond", Georgia, serif;
-  font-size: 14px;
+  font-size: var(--fs-sm);
   font-weight: 700;
   color: var(--ink);
   background: var(--paper-deep);
@@ -204,7 +222,7 @@ body {
   margin: 0 auto 18px;
   padding: 8px 18px;
   font-family: "EB Garamond", Georgia, serif;
-  font-size: 14px;
+  font-size: var(--fs-sm);
   font-weight: 700;
   color: var(--wine);
   background: var(--paper-deep);
@@ -228,7 +246,7 @@ body {
   font-family: "EB Garamond", Georgia, serif;
   font-variant: small-caps;
   letter-spacing: 0.04em;
-  font-size: 15px;
+  font-size: var(--fs-md);
   font-weight: 700;
   color: var(--wine);
   margin: 0 0 10px;
@@ -245,7 +263,7 @@ body {
   background: var(--paper);
   color: var(--ink);
   font-family: "EB Garamond", Georgia, serif;
-  font-size: 17px;
+  font-size: var(--fs-base);
   border-radius: 3px;
 }
 .search-row input[type="search"]:focus {
@@ -255,7 +273,7 @@ body {
 
 .search-hint {
   color: var(--muted);
-  font-size: 13px;
+  font-size: var(--fs-xs);
   font-style: italic;
   margin: 8px 0 14px;
 }
@@ -273,7 +291,7 @@ body {
   gap: 4px;
   padding: 5px 11px;
   font-family: "EB Garamond", Georgia, serif;
-  font-size: 13px;
+  font-size: var(--fs-xs);
   font-weight: 700;
   border: 1px solid var(--paper-line);
   background: var(--paper);
@@ -293,7 +311,7 @@ body {
 
 .facet-group-label {
   font-family: "EB Garamond", Georgia, serif;
-  font-size: 12px;
+  font-size: var(--fs-2xs);
   font-weight: 700;
   font-variant: small-caps;
   letter-spacing: 0.05em;
@@ -306,7 +324,7 @@ body {
   border: none;
   color: var(--wine);
   font-family: "EB Garamond", Georgia, serif;
-  font-size: 13px;
+  font-size: var(--fs-xs);
   font-weight: 700;
   cursor: pointer;
   padding: 5px 4px;
@@ -316,10 +334,26 @@ body {
 .results-summary {
   font-family: "EB Garamond", Georgia, serif;
   font-style: italic;
-  font-size: 14px;
+  font-size: var(--fs-sm);
   color: var(--muted);
   margin-bottom: 12px;
 }
+
+.concordance-group { margin-bottom: 6px; }
+.concordance-group-summary {
+  font-family: "EB Garamond", Georgia, serif;
+  font-variant: small-caps;
+  letter-spacing: 0.04em;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--wine);
+  cursor: pointer;
+  padding: 6px 2px;
+  border-bottom: 1px solid var(--paper-line);
+  margin-bottom: 8px;
+}
+.concordance-group-summary .count { color: var(--muted); font-variant: normal; letter-spacing: normal; }
+.concordance-group-summary::marker { color: var(--gold); }
 
 .result-item, .section-item {
   border: 1px solid var(--paper-line);
@@ -339,17 +373,22 @@ body {
   box-shadow: 0 0 0 1px var(--gold);
 }
 
+/* The English title/name - given real weight (the same size as the
+   Armenian line right above it), not a barely-legible caption, since for
+   an English-first reader this line often carries more meaning than the
+   Armenian heading it sits under. */
 .result-loc-en, .section-heading-en {
   font-family: "EB Garamond", Georgia, serif;
   font-style: italic;
-  font-size: 12.5px;
+  font-size: var(--fs-lg);
   color: var(--muted);
   margin: -2px 0 6px;
+  line-height: 1.35;
 }
 
 .result-loc, .section-cat {
   font-family: "EB Garamond", Georgia, serif;
-  font-size: 12px;
+  font-size: var(--fs-2xs);
   font-weight: 700;
   font-variant: small-caps;
   letter-spacing: 0.04em;
@@ -363,7 +402,7 @@ body {
 
 .result-text, .section-heading {
   font-family: "GHEA Mariam", serif;
-  font-size: 19px;
+  font-size: var(--fs-lg);
   line-height: 1.55;
   margin: 4px 0;
   overflow-wrap: break-word;
@@ -381,7 +420,7 @@ body.show-translit .result-loc.script-translit { display: inline-block; }
 
 .result-en {
   font-family: "EB Garamond", Georgia, serif;
-  font-size: 15px;
+  font-size: var(--fs-md);
   color: var(--muted);
   border-left: 2px solid var(--gold);
   padding-left: 10px;
@@ -390,7 +429,7 @@ body.show-translit .result-loc.script-translit { display: inline-block; }
 
 .jump-link {
   font-family: "EB Garamond", Georgia, serif;
-  font-size: 13px;
+  font-size: var(--fs-xs);
   font-weight: 700;
   color: var(--wine);
   text-decoration: none;
@@ -420,7 +459,7 @@ body.show-translit .result-loc.script-translit { display: inline-block; }
   font-family: "EB Garamond", Georgia, serif;
   font-weight: 700;
   font-style: italic;
-  font-size: 20px;
+  font-size: var(--fs-xl);
   color: var(--wine);
   margin-bottom: 6px;
 }
@@ -429,20 +468,20 @@ body.show-translit .result-loc.script-translit { display: inline-block; }
   font-family: "EB Garamond", Georgia, serif;
   font-variant: small-caps;
   letter-spacing: 0.04em;
-  font-size: 13px;
+  font-size: var(--fs-xs);
   color: var(--muted);
 }
 
 .category-breadcrumb {
   font-family: "EB Garamond", Georgia, serif;
-  font-size: 14px;
+  font-size: var(--fs-sm);
   margin-bottom: 10px;
 }
 .category-breadcrumb button {
   background: none;
   border: none;
   font-family: inherit;
-  font-size: 14px;
+  font-size: var(--fs-sm);
   font-weight: 700;
   color: var(--wine);
   cursor: pointer;
@@ -488,7 +527,7 @@ body.show-translit .result-loc.script-translit { display: inline-block; }
   background: none;
   border: none;
   font-family: "EB Garamond", Georgia, serif;
-  font-size: 13px;
+  font-size: var(--fs-xs);
   font-weight: 700;
   color: var(--wine);
   cursor: pointer;
@@ -502,7 +541,7 @@ body.show-translit .result-loc.script-translit { display: inline-block; }
   font-variant: small-caps;
   font-weight: 700;
   letter-spacing: 0.1em;
-  font-size: 19px;
+  font-size: var(--fs-lg);
   color: var(--gold);
   margin: 2px 0;
   overflow-wrap: break-word;
@@ -511,7 +550,7 @@ body.show-translit .result-loc.script-translit { display: inline-block; }
 .reading-heading {
   font-family: "GHEA Avandakan", serif;
   color: var(--wine);
-  font-size: 36px;
+  font-size: var(--fs-4xl);
   text-align: center;
   margin: 6px 0 2px;
   line-height: 1.3;
@@ -521,7 +560,7 @@ body.show-translit .result-loc.script-translit { display: inline-block; }
 .reading-heading-sm {
   font-family: "GHEA Avandakan", serif;
   color: var(--wine);
-  font-size: 27px;
+  font-size: var(--fs-3xl);
   text-align: center;
   margin: 4px 0 2px;
   line-height: 1.3;
@@ -538,13 +577,16 @@ body.show-translit .result-loc.script-translit { display: inline-block; }
   font-style: italic;
 }
 
+/* The English title - deliberately close in size to the eyebrow/heading
+   above it (not a whispered caption), since it's often the more legible
+   line for an English-first reader. */
 .reading-heading-en {
   text-align: center;
   font-family: "EB Garamond", Georgia, serif;
   font-style: italic;
   color: var(--muted);
-  font-size: 16px;
-  margin: 2px 0 0;
+  font-size: var(--fs-xl);
+  margin: 4px 0 0;
   line-height: 1.4;
 }
 
@@ -553,7 +595,7 @@ body.show-translit .result-loc.script-translit { display: inline-block; }
   font-family: "EB Garamond", Georgia, serif;
   font-variant: small-caps;
   letter-spacing: 0.05em;
-  font-size: 17px;
+  font-size: var(--fs-base);
   color: var(--muted);
   margin-bottom: 8px;
 }
@@ -561,7 +603,7 @@ body.show-translit .result-loc.script-translit { display: inline-block; }
 .genre-badge {
   text-align: center;
   font-family: "EB Garamond", Georgia, serif;
-  font-size: 21px;
+  font-size: var(--fs-xl);
   font-style: italic;
   color: var(--muted);
   margin-bottom: 22px;
@@ -577,7 +619,7 @@ body.show-translit .result-loc.script-translit { display: inline-block; }
   text-align: center;
   margin-bottom: 20px;
   font-family: "EB Garamond", Georgia, serif;
-  font-size: 16px;
+  font-size: var(--fs-md);
   font-variant: small-caps;
   letter-spacing: 0.08em;
   color: var(--muted);
@@ -593,13 +635,13 @@ body.show-translit .result-loc.script-translit { display: inline-block; }
   font-weight: 700;
   font-variant: normal;
   letter-spacing: 0.02em;
-  font-size: 18px;
+  font-size: var(--fs-md);
 }
 
 .verse-progress {
   text-align: center;
   font-family: "EB Garamond", Georgia, serif;
-  font-size: 15px;
+  font-size: var(--fs-sm);
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -627,7 +669,7 @@ body.show-translit .result-loc.script-translit { display: inline-block; }
 
 .verse-armenian {
   font-family: "GHEA Mariam", serif;
-  font-size: 25px;
+  font-size: var(--fs-2xl);
   line-height: 1.75;
   color: var(--ink);
   text-align: center;
@@ -693,10 +735,98 @@ body.phrase-link .phrase-active {
   box-shadow: 0 0 0 2px rgba(198, 156, 74, 0.3);
 }
 
+/* =========================================================================
+   Inline study view (experimental, opt-in) - see sharagan.js for the
+   rationale. Phrase-link connections get a permanent, subtle underline
+   instead of only revealing on hover; scripture citations become small
+   inline chips right under the verse they belong to, each expanding an
+   inline footnote in place instead of a separate side panel; and an
+   optional up-front disclosure (right before the first verse) can still
+   show every citation for the whole Sharagan together, tabbed, exactly
+   like the old aside panel did.
+   ========================================================================= */
+body.study-mode .phrase {
+  border-bottom: 1px dotted rgba(var(--wine-rgb), 0.5);
+  border-radius: 2px;
+}
+
+.study-all-citations {
+  margin: 4px 0 18px;
+  text-align: center;
+}
+.study-all-citations-toggle {
+  font-family: "EB Garamond", Georgia, serif;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  font-style: italic;
+  color: var(--wine);
+  background: none;
+  border: 1px dashed var(--paper-line);
+  border-radius: 999px;
+  padding: 6px 16px;
+  cursor: pointer;
+}
+.study-all-citations-toggle:hover { border-color: var(--gold); color: var(--gold-bright); }
+.study-all-citations-panel {
+  margin-top: 12px;
+  text-align: left;
+  background: var(--paper);
+  border: 1px solid var(--paper-line);
+  border-radius: 6px;
+  padding: 18px 20px;
+}
+
+.study-scripture-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 10px;
+}
+.study-scripture-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: "EB Garamond", Georgia, serif;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--wine);
+  background: var(--paper);
+  border: 1px solid var(--paper-line);
+  border-radius: 999px;
+  padding: 3px 10px;
+  cursor: pointer;
+}
+.study-scripture-chip:hover { border-color: var(--gold); }
+.study-scripture-chip.open {
+  background: var(--wine);
+  border-color: var(--wine);
+  color: var(--paper-deep);
+}
+
+.study-scripture-footnotes:empty { display: none; }
+
+.scripture-inline-footnote {
+  margin: 10px auto 4px;
+  max-width: 640px;
+  padding: 14px 18px;
+  background: var(--paper);
+  border: 1px solid var(--paper-line);
+  border-left: 3px solid var(--wine);
+  border-radius: 4px;
+  text-align: left;
+}
+.scripture-inline-footnote .scripture-columns { gap: 20px; }
+
+@media (max-width: 640px) {
+  .scripture-inline-footnote { padding: 12px 14px; }
+  .scripture-inline-footnote .scripture-columns { grid-template-columns: 1fr; }
+}
+
 .verse-divider {
   text-align: center;
   color: var(--gold);
-  font-size: 15px;
+  font-size: var(--fs-sm);
   letter-spacing: 0.3em;
   margin: 4px 0 18px;
   opacity: 0.75;
@@ -721,7 +851,7 @@ body.phrase-link .phrase-active {
 
 .verse-english {
   font-family: "EB Garamond", Georgia, serif;
-  font-size: 25px;
+  font-size: var(--fs-2xl);
   line-height: 1.65;
   color: var(--ink);
   text-align: center;
@@ -759,7 +889,7 @@ body.phrase-link .phrase-active {
 .verse-english.pending {
   font-style: italic;
   color: var(--muted);
-  font-size: 15px;
+  font-size: var(--fs-sm);
 }
 
 .sharagan-nav {
@@ -777,7 +907,7 @@ body.phrase-link .phrase-active {
   align-items: center;
   padding: 5px 12px;
   font-family: "EB Garamond", Georgia, serif;
-  font-size: 13px;
+  font-size: var(--fs-xs);
   font-weight: 700;
   border: 1px solid var(--paper-line);
   background: var(--paper);
@@ -807,7 +937,7 @@ body.phrase-link .phrase-active {
 
 .nav-btn {
   font-family: "EB Garamond", Georgia, serif;
-  font-size: 15px;
+  font-size: var(--fs-sm);
   font-weight: 700;
   color: var(--paper-deep);
   background: var(--wine);
@@ -824,14 +954,14 @@ body.phrase-link .phrase-active {
   align-items: center;
   gap: 6px;
   font-family: "EB Garamond", Georgia, serif;
-  font-size: 13px;
+  font-size: var(--fs-xs);
   color: var(--muted);
 }
 .jump-form input {
   width: 48px;
   text-align: center;
   font-family: "EB Garamond", Georgia, serif;
-  font-size: 14px;
+  font-size: var(--fs-xs);
   border: 1px solid var(--paper-line);
   background: var(--paper);
   color: var(--ink);
@@ -845,7 +975,7 @@ body.phrase-link .phrase-active {
 }
 .whole-canon-link a {
   font-family: "EB Garamond", Georgia, serif;
-  font-size: 13px;
+  font-size: var(--fs-xs);
   font-weight: 700;
   color: var(--muted);
   text-decoration: underline;
@@ -857,7 +987,7 @@ body.phrase-link .phrase-active {
 .stanza-block { margin-bottom: 20px; }
 .stanza-type-label {
   font-family: "EB Garamond", Georgia, serif;
-  font-size: 12px;
+  font-size: var(--fs-2xs);
   font-weight: 700;
   font-variant: small-caps;
   color: var(--muted);
@@ -867,7 +997,7 @@ body.phrase-link .phrase-active {
 }
 .whole-verse-line {
   font-family: "GHEA Mariam", serif;
-  font-size: 18px;
+  font-size: var(--fs-lg);
   line-height: 1.6;
   margin-bottom: 4px;
   cursor: pointer;
@@ -878,11 +1008,11 @@ body.phrase-link .phrase-active {
   font-weight: 700;
   margin-right: 5px;
   font-family: "EB Garamond", Georgia, serif;
-  font-size: 13px;
+  font-size: var(--fs-xs);
 }
 .whole-verse-en {
   font-family: "EB Garamond", Georgia, serif;
-  font-size: 14px;
+  font-size: var(--fs-sm);
   color: var(--muted);
   border-left: 2px solid var(--paper-line);
   padding-left: 8px;
@@ -893,7 +1023,7 @@ body.phrase-link .phrase-active {
 .footer-note {
   text-align: center;
   font-family: "EB Garamond", Georgia, serif;
-  font-size: 13px;
+  font-size: var(--fs-xs);
   color: var(--muted);
   line-height: 1.6;
   margin-top: 30px;
@@ -902,10 +1032,10 @@ body.phrase-link .phrase-active {
 
 @media (max-width: 640px) {
   .hymnal-title { font-size: 32px; }
-  .reading-heading { font-size: 27px; }
-  .reading-heading-sm { font-size: 21px; }
-  .verse-armenian { font-size: 21px; }
-  .verse-english { font-size: 21px; }
+  .reading-heading { font-size: var(--fs-3xl); }
+  .reading-heading-sm { font-size: var(--fs-xl); }
+  .verse-armenian { font-size: var(--fs-xl); }
+  .verse-english { font-size: var(--fs-xl); }
   .reading-card { padding: 20px 16px 18px; }
   .reading-nav { justify-content: center; }
 }
@@ -959,7 +1089,7 @@ body.wide-reading .app { max-width: 1180px; }
 }
 .scripture-tab {
   font-family: "EB Garamond", Georgia, serif;
-  font-size: 13px;
+  font-size: var(--fs-xs);
   font-weight: 700;
   color: var(--muted);
   background: none;
@@ -998,14 +1128,14 @@ body.wide-reading .app { max-width: 1180px; }
   font-family: "EB Garamond", Georgia, serif;
   font-variant: small-caps;
   letter-spacing: 0.06em;
-  font-size: 17px;
+  font-size: var(--fs-lg);
   font-weight: 700;
   color: var(--wine);
 }
 .scripture-entry-note {
   font-family: "EB Garamond", Georgia, serif;
   font-style: italic;
-  font-size: 13.5px;
+  font-size: var(--fs-xs);
   color: var(--muted);
   margin-top: 3px;
   line-height: 1.4;
@@ -1043,20 +1173,21 @@ body.wide-reading .app { max-width: 1180px; }
   font-family: "EB Garamond", Georgia, serif;
   font-weight: 700;
   color: var(--gold);
-  font-size: 11px;
+  font-size: var(--fs-2xs);
   vertical-align: super;
   margin-right: 3px;
 }
-.scripture-verse.scripture-arm {
-  font-family: "GHEA Mariam", serif;
-  font-size: 15px;
-  color: var(--ink);
-}
+/* Armenian and English get the SAME size here (a bilingual pair read side
+   by side) - one language quietly smaller than the other, the way this
+   used to be set up, is the exact kind of mismatch this whole rework is
+   trying to get rid of. */
+.scripture-verse.scripture-arm,
 .scripture-verse.scripture-en {
-  font-family: "EB Garamond", Georgia, serif;
-  font-size: 14px;
+  font-size: var(--fs-md);
   color: var(--ink);
 }
+.scripture-verse.scripture-arm { font-family: "GHEA Mariam", serif; }
+.scripture-verse.scripture-en { font-family: "EB Garamond", Georgia, serif; }
 
 .scripture-chapter-btn {
   display: block;
@@ -1064,7 +1195,7 @@ body.wide-reading .app { max-width: 1180px; }
   background: none;
   border: none;
   font-family: "EB Garamond", Georgia, serif;
-  font-size: 13px;
+  font-size: var(--fs-xs);
   font-weight: 700;
   color: var(--wine);
   cursor: pointer;
@@ -1110,7 +1241,7 @@ body.wide-reading .app { max-width: 1180px; }
   font-weight: 700;
   font-style: italic;
   color: var(--wine);
-  font-size: 22px;
+  font-size: var(--fs-xl);
 }
 .scripture-dialog-close {
   background: none;
@@ -1128,8 +1259,12 @@ body.wide-reading .app { max-width: 1180px; }
   overflow-y: auto;
 }
 .scripture-dialog-body .scripture-columns { gap: 26px; }
-.scripture-dialog-body .scripture-verse.scripture-arm { font-size: 17px; }
-.scripture-dialog-body .scripture-verse.scripture-en { font-size: 16px; }
+/* Same reasoning as the panel's own scripture-arm/scripture-en pair above:
+   matched sizes, not one language quietly smaller than the other. */
+.scripture-dialog-body .scripture-verse.scripture-arm,
+.scripture-dialog-body .scripture-verse.scripture-en {
+  font-size: var(--fs-base);
+}
 
 @media (max-width: 900px) {
   body.wide-reading .app { max-width: 880px; }
