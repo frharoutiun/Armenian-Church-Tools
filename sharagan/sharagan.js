@@ -786,6 +786,7 @@
       + '" data-jump-word="' + escapeHtml(matchedWord || "") + '">';
     html += '<div class="result-loc script-original">' + escapeHtml(heading) + '</div>';
     html += '<div class="result-loc script-translit">' + escapeHtml(translit(heading)) + '</div>';
+    if (section.titleEn) html += '<div class="result-loc-en">' + escapeHtml(section.titleEn) + '</div>';
     html += '<div class="result-text script-original">' + escapeHtml(verse.text) + '</div>';
     html += '<div class="result-text script-translit">' + escapeHtml(translit(verse.text)) + '</div>';
     if (verse.en) html += '<div class="result-en">' + escapeHtml(verse.en) + '</div>';
@@ -856,6 +857,7 @@
     html += '<div class="section-cat">' + escapeHtml(section.category) + '</div>';
     html += '<div class="section-heading script-original" style="font-size:19px;">' + escapeHtml(hyphenateArmenian(heading)) + '</div>';
     html += '<div class="section-heading script-translit" style="font-size:19px;">' + escapeHtml(translit(heading)) + '</div>';
+    if (section.titleEn) html += '<div class="section-heading-en">' + escapeHtml(section.titleEn) + '</div>';
     html += '</div>';
     return html;
   }
@@ -1144,6 +1146,7 @@
 
     html += '<div class="reading-category">' + escapeHtml(section.category) + '</div>';
     html += renderHeadingBlock(section.heading, "reading-heading");
+    if (section.titleEn) html += '<div class="reading-heading-en">' + escapeHtml(section.titleEn) + '</div>';
     html += '<div class="ornament">֍</div>';
 
     html += genreBadgeHtml(stanza);
@@ -1240,6 +1243,7 @@
     html += '</div>';
     html += '<div class="reading-category">' + escapeHtml(section.category) + '</div>';
     html += renderHeadingBlock(section.heading, "reading-heading-sm");
+    if (section.titleEn) html += '<div class="reading-heading-en">' + escapeHtml(section.titleEn) + '</div>';
     html += '<div class="ornament">֍</div>';
     html += renderSharaganNav(section, -1);
 

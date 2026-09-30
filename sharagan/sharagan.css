@@ -339,6 +339,14 @@ body {
   box-shadow: 0 0 0 1px var(--gold);
 }
 
+.result-loc-en, .section-heading-en {
+  font-family: "EB Garamond", Georgia, serif;
+  font-style: italic;
+  font-size: 12.5px;
+  color: var(--muted);
+  margin: -2px 0 6px;
+}
+
 .result-loc, .section-cat {
   font-family: "EB Garamond", Georgia, serif;
   font-size: 12px;
@@ -528,6 +536,16 @@ body.show-translit .result-loc.script-translit { display: inline-block; }
   font-family: "EB Garamond", Georgia, serif;
   font-weight: 700;
   font-style: italic;
+}
+
+.reading-heading-en {
+  text-align: center;
+  font-family: "EB Garamond", Georgia, serif;
+  font-style: italic;
+  color: var(--muted);
+  font-size: 16px;
+  margin: 2px 0 0;
+  line-height: 1.4;
 }
 
 .reading-category {
@@ -887,7 +905,7 @@ body.phrase-link .phrase-active {
   .reading-heading { font-size: 27px; }
   .reading-heading-sm { font-size: 21px; }
   .verse-armenian { font-size: 21px; }
-  .verse-english { font-size: 17px; }
+  .verse-english { font-size: 21px; }
   .reading-card { padding: 20px 16px 18px; }
   .reading-nav { justify-content: center; }
 }
